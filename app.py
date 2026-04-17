@@ -152,6 +152,7 @@ else:
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
             time.sleep(0.5) # Tránh bị API block
+        tickers = get_top_100_liquidity()
         results = []
         for ticker in tickers:
             try:               
