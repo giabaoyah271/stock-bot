@@ -50,7 +50,7 @@ def calculate_indicators(df):
 # --- 4. HÀM LẤY DỮ LIỆU ---
 @st.cache_data(ttl=600)
 def get_data(symbol, tf):
-    for src in ['VCI', 'DNSE', 'KBS']:
+    for src in ['TCBS','VCI', 'DNSE', 'KBS']:
         try:
             stock = Vnstock().stock(symbol=symbol, source=src)
             df = stock.quote.history(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
@@ -152,16 +152,16 @@ else:
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
             time.sleep(0.1) # Tránh bị API block
-        
+        df_res = df_res.dropna() # Xóa các mã không tính toán được giá hoặc lời/lỗ
         # Format bảng hiển thị đẹp mắt
         df_res = pd.DataFrame(results)
         if not df_res.empty:
-            st.dataframe(
-                df_res.style.format({
-                    "Giá Tín Hiệu": "{:.2f}", 
-                    "Giá Hiện Tại": "{:.2f}", 
-                    "Lời/Lỗ (%)": "{:.2f}%"
-                }), 
-                use_container_width=True,
-                height=600
-            )
+st.dataframe(
+    df_res.style.format({
+        "Giá Tín Hiệu": "{:.2f}", 
+        "Giá Hiện Tại": "{:.2f}", 
+        "Lời/Lỗ (%)": "{:.2f}%"
+    }, na_rep="-"), # Thêm na_rep="-" ở đây
+    use_container_width=True,
+    height=600
+)
