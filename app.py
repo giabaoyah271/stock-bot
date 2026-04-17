@@ -16,11 +16,6 @@ TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 @st.cache_data(ttl=3600)
 def get_top_100_liquidity():
     try:
-        # Lấy trực tiếp top 100 thanh khoản thời gian thực
-        df_top = Vnstock().market.top_report(limit=100, category='top_volume')
-        return df_top['symbol'].tolist()
-    except:
-        # Danh sách dự phòng nếu API nghẽn
         return [
             'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB', 
             'TCB', 'GEX', 'VHM', 'VIC', 'VRE', 'VPB', 'ACB', 'HDB', 'CTG', 'BID', 
