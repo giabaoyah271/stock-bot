@@ -1,6 +1,4 @@
 streamlit
-pandas
-pandas_ta
+pandas-ta
 vnstock
 plotly
-numpy
