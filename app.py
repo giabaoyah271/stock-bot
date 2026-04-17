@@ -16,16 +16,16 @@ TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 @st.cache_data(ttl=3600)
 def get_top_100_liquidity():
         return [
-            'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB', 
-            'TCB', 'GEX', 'VHM', 'VIC', 'VRE', 'VPB', 'ACB', 'HDB', 'CTG', 'BID', 
-            'VCB', 'MSN', 'MWG', 'FPT', 'PNJ', 'GAS', 'SAB', 'VNM', 'BVH', 'POW', 
-            'KBC', 'VGC', 'IDC', 'SZC', 'NLG', 'KDH', 'DXG', 'CEO', 'HAG', 'HSG', 
-            'NKG', 'DGC', 'DPM', 'DCM', 'CSV', 'GVR', 'PHR', 'DPR', 'HCM', 'VCI', 
-            'MBS', 'FTS', 'CTS', 'BSI', 'AGR', 'TCH', 'HHV', 'VCG', 'LCG', 'FCN', 
-            'CII', 'HUT', 'KDC', 'SBT', 'PAN', 'LTG', 'ASM', 'IDI', 'ANV', 'VHC', 
-            'FMC', 'PC1', 'HDG', 'GEG', 'REE', 'NT2', 'VSH', 'TNG', 'TCM', 'GIL', 
-            'HAH', 'VOS', 'PVT', 'PVS', 'PVD', 'BSR', 'OIL', 'PLX', 'BCG', 'SAM', 
-            'ITA', 'HQC', 'SCR', 'CRE', 'KHG', 'TDC', 'IJC', 'VPI', 'CTD', 'LPB'
+            'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB',
+            'TCB', 'VPB', 'SHB', 'ACB', 'DXG', 'VCI', 'HCM', 'CEO', 'HAG', 'HSG',
+            'NKG', 'GVR', 'FPT', 'MWG', 'MSN', 'VIC', 'VHM', 'VCB', 'BID', 'CTG',
+            'LPB', 'HDB', 'TPB', 'MSB', 'OCB', 'EIB', 'VIB', 'DGC', 'DPM', 'DCM',
+            'PVD', 'PVS', 'PVT', 'BSR', 'GAS', 'PLX', 'POW', 'VRE', 'GMD', 'HAH',
+            'VJC', 'HVN', 'REE', 'PC1', 'VCG', 'HHV', 'LCG', 'C4G', 'FCN', 'CII',
+            'KBC', 'SZC', 'IDC', 'ITA', 'HQC', 'SCR', 'CRE', 'KHG', 'TDC', 'IJC',
+            'VPI', 'CTD', 'SAB', 'PNJ', 'DBC', 'PAN', 'ANV', 'IDI', 'VHC', 'GEG',
+            'NT2', 'PPC', 'TV2', 'CSV', 'BFC', 'LAS', 'PHR', 'DPR', 'VGT', 'MSH',
+            'TCM', 'LSS', 'SBT', 'QCG', 'DXS', 'HUT', 'TNG', 'VGS', 'MBS', 'PVC'
         ]
 
 TOP_MARKET = get_top_100_liquidity()
@@ -151,26 +151,30 @@ else:
                 })
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(0.1) # Tránh bị API block
-        df_res = pd.DataFrame(results)
+            time.sleep(0.5) # Tránh bị API block
+       df_res = pd.DataFrame(results)
         if not df_res.empty:
-            # Đảm bảo các cột số thực sự là kiểu số
-            df_res["Giá Tín Hiệu"] = pd.to_numeric(df_res["Giá Tín Hiệu"], errors='coerce')
-            df_res["Giá Hiện Tại"] = pd.to_numeric(df_res["Giá Hiện Tại"], errors='coerce')
-            df_res["Lời/Lỗ (%)"] = pd.to_numeric(df_res["Lời/Lỗ (%)"], errors='coerce')
-            
-            # Xóa các dòng bị lỗi dữ liệu (nếu có)
-            df_res = df_res.dropna()
-
-            # 2. Hiển thị bảng bằng column_config (Cực kỳ ổn định, không lo lỗi TypeError)
+            # Ép kiểu số để tính toán và định dạng chính xác
+            cols_to_fix = ["Giá Tín Hiệu", "Giá Hiện Tại", "Lời/Lỗ (%)"]
+            for col in cols_to_fix:
+                if col in df_res.columns:
+                    df_res[col] = pd.to_numeric(df_res[col], errors='coerce')
+            # --- PHẦN QUAN TRỌNG: TẠO CỘT STT ---
+            # Sắp xếp lại index và tạo cột STT bắt đầu từ 1
+            df_res = df_res.reset_index(drop=True)
+            df_res.insert(0, "STT", range(1, len(df_res) + 1))
+            # 2. Hiển thị bảng
             st.dataframe(
                 df_res,
                 column_config={
+                    "STT": st.column_config.NumberColumn("STT", width="small"),
                     "Giá Tín Hiệu": st.column_config.NumberColumn("Giá Tín Hiệu", format="%.2f"),
                     "Giá Hiện Tại": st.column_config.NumberColumn("Giá Hiện Tại", format="%.2f"),
                     "Lời/Lỗ (%)": st.column_config.NumberColumn("Lời/Lỗ (%)", format="%.2f%%"),
                 },
                 use_container_width=True,
                 height=600,
-                hide_index=True # Ẩn cột chỉ số cho bảng đẹp hơn
+                hide_index=True # Ẩn cột chỉ số mặc định của Pandas để dùng cột STT mình tự tạo
             )
+        else:
+            st.warning("Không có dữ liệu nào được tìm thấy.")
