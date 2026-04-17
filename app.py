@@ -152,9 +152,9 @@ else:
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
             time.sleep(0.1) # Tránh bị API block
-        df_res = df_res.dropna() # Xóa các mã không tính toán được giá hoặc lời/lỗ
         # Format bảng hiển thị đẹp mắt
         df_res = pd.DataFrame(results)
+        df_res = df_res.dropna() # Xóa các mã không tính toán được giá hoặc lời/lỗ
         if not df_res.empty:
                 df_res = df_res.dropna()
                 st.dataframe(
