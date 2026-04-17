@@ -126,7 +126,7 @@ if mode == "Phân tích chi tiết mã":
 
 else:
     st.header(f"🔍 Trình quét tín hiệu (Khung: {timeframe})")
-    if st.button("Bắt đầu quét"):
+    if st.button("Bắt đầu phân tích"):
         results = []
         bar = st.progress(0)
         for i, s in enumerate(TOP_MARKET):
@@ -151,8 +151,24 @@ else:
                 })
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(1) # Tránh bị API block
+            time.sleep(0.5) # Tránh bị API block
 if st.button("Bắt đầu quét"):
+        results = []
+        for ticker in tickers:
+            try:               
+                results.append({
+                    "Mã": ticker,
+                    "Trạng thái": "MUA", 
+                    "Giá Tín Hiệu": 28.5, # Thay bằng biến của bạn
+                    "Giá Hiện Tại": 29.0, # Thay bằng biến của bạn
+                    "Lời/Lỗ (%)": 1.75   # Thay bằng biến của bạn
+                })
+            except:
+                # Nếu mã nào lỗi, vẫn thêm vào để bảng đủ dòng
+                results.append({
+                    "Mã": ticker, "Trạng thái": "Lỗi", 
+                    "Giá Tín Hiệu": None, "Giá Hiện Tại": None, "Lời/Lỗ (%)": None
+                })
         df_res = pd.DataFrame(results)
         if not df_res.empty:
             # Ép kiểu số để tính toán và định dạng chính xác
