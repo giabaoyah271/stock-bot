@@ -23,14 +23,6 @@ def get_top_100_liquidity():
         # Danh sách dự phòng nếu API nghẽn
         return [
             'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB', 
-            'TCB', 'GEX', 'VHM', 'VIC', 'VRE', 'VPB', 'ACB', 'HDB', 'CTG', 'BID', 
-            'VCB', 'MSN', 'MWG', 'FPT', 'PNJ', 'GAS', 'SAB', 'VNM', 'BVH', 'POW', 
-            'KBC', 'VGC', 'IDC', 'SZC', 'NLG', 'KDH', 'DXG', 'CEO', 'HAG', 'HSG', 
-            'NKG', 'DGC', 'DPM', 'DCM', 'CSV', 'GVR', 'PHR', 'DPR', 'HCM', 'VCI', 
-            'MBS', 'FTS', 'CTS', 'BSI', 'AGR', 'TCH', 'HHV', 'VCG', 'LCG', 'FCN', 
-            'CII', 'HUT', 'KDC', 'SBT', 'PAN', 'LTG', 'ASM', 'IDI', 'ANV', 'VHC', 
-            'FMC', 'PC1', 'HDG', 'GEG', 'REE', 'NT2', 'VSH', 'TNG', 'TCM', 'GIL', 
-            'HAH', 'VOS', 'PVT', 'PVS', 'PVD', 'BSR', 'OIL', 'PLX', 'BCG', 'SAM', 
             'ITA', 'HQC', 'SCR', 'CRE', 'KHG', 'TDC', 'IJC', 'VPI', 'CTD', 'LPB'
         ]
 
