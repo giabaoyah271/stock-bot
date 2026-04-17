@@ -15,7 +15,6 @@ TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 # --- 2. HÀM LẤY TOP 100 THANH KHOẢN ---
 @st.cache_data(ttl=3600)
 def get_top_100_liquidity():
-    try:
         return [
             'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB', 
             'TCB', 'GEX', 'VHM', 'VIC', 'VRE', 'VPB', 'ACB', 'HDB', 'CTG', 'BID', 
