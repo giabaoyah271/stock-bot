@@ -1,7 +1,6 @@
 streamlit
 pandas
-vnstock3
+vnstock
 plotly
 numpy
 ipython
-requests
