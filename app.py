@@ -152,7 +152,6 @@ else:
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
             time.sleep(0.5) # Tránh bị API block
-if st.button("Bắt đầu quét"):
         results = []
         for ticker in tickers:
             try:               
