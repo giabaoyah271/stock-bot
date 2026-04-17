@@ -12,49 +12,45 @@ st.set_page_config(page_title="Hệ thống Giao dịch Xanh-Đỏ", layout="wid
 
 TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 
-# --- 2. DANH SÁCH 150 MÃ THANH KHOẢN CAO ---
+# --- 2. HÀM LẤY TOP 100 THANH KHOẢN ---
 @st.cache_data(ttl=3600)
-def get_top_liquidity():
-    # Danh sách 150 mã tiêu biểu trên cả 2 sàn VN-Index & HNX-Index
-    return [
-        'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB',
-        'TCB', 'VPB', 'SHB', 'ACB', 'DXG', 'VCI', 'HCM', 'CEO', 'HAG', 'HSG',
-        'NKG', 'GVR', 'FPT', 'MWG', 'MSN', 'VIC', 'VHM', 'VCB', 'BID', 'CTG',
-        'LPB', 'HDB', 'TPB', 'MSB', 'OCB', 'EIB', 'VIB', 'DGC', 'DPM', 'DCM',
-        'PVD', 'PVS', 'PVT', 'BSR', 'GAS', 'PLX', 'POW', 'VRE', 'GMD', 'HAH',
-        'VJC', 'HVN', 'REE', 'PC1', 'VCG', 'HHV', 'LCG', 'C4G', 'FCN', 'CII',
-        'KBC', 'SZC', 'IDC', 'ITA', 'HQC', 'SCR', 'CRE', 'KHG', 'TDC', 'IJC',
-        'VPI', 'CTD', 'SAB', 'PNJ', 'DBC', 'PAN', 'ANV', 'IDI', 'VHC', 'GEG',
-        'NT2', 'PPC', 'TV2', 'CSV', 'BFC', 'LAS', 'PHR', 'DPR', 'VGT', 'MSH',
-        'TCM', 'LSS', 'SBT', 'QCG', 'DXS', 'HUT', 'TNG', 'VGS', 'MBS', 'PVC',
-        'VDS', 'BSI', 'FTS', 'CTS', 'AGR', 'ORS', 'BVB', 'ABB', 'NAB', 'MSH',
-        'TLG', 'GIL', 'TCH', 'HHS', 'HT1', 'BCC', 'PLC', 'KSB', 'DHA', 'VGC',
-        'NLG', 'KDH', 'ASM', 'BCG', 'SAM', 'PET', 'DGW', 'FRT', 'CTR', 'VGI',
-        'PVB', 'PVC', 'PVP', 'VTO', 'VIP', 'VOS', 'SKG', 'VNB', 'TIG', 'MST',
-        'IDJ', 'L14', 'L18', 'S99', 'TVC', 'TVS', 'FIT', 'TSC', 'HAR', 'LDG'
-    ]
+def get_top_100_liquidity():
+    try:
+        # Lấy trực tiếp top 100 thanh khoản thời gian thực
+        df_top = Vnstock().market.top_report(limit=100, category='top_volume')
+        return df_top['symbol'].tolist()
+    except:
+        # Danh sách dự phòng nếu API nghẽn
+        return [
+            'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB', 
+            'TCB', 'GEX', 'VHM', 'VIC', 'VRE', 'VPB', 'ACB', 'HDB', 'CTG', 'BID', 
+            'VCB', 'MSN', 'MWG', 'FPT', 'PNJ', 'GAS', 'SAB', 'VNM', 'BVH', 'POW', 
+            'KBC', 'VGC', 'IDC', 'SZC', 'NLG', 'KDH', 'DXG', 'CEO', 'HAG', 'HSG', 
+            'NKG', 'DGC', 'DPM', 'DCM', 'CSV', 'GVR', 'PHR', 'DPR', 'HCM', 'VCI', 
+            'MBS', 'FTS', 'CTS', 'BSI', 'AGR', 'TCH', 'HHV', 'VCG', 'LCG', 'FCN', 
+            'CII', 'HUT', 'KDC', 'SBT', 'PAN', 'LTG', 'ASM', 'IDI', 'ANV', 'VHC', 
+            'FMC', 'PC1', 'HDG', 'GEG', 'REE', 'NT2', 'VSH', 'TNG', 'TCM', 'GIL', 
+            'HAH', 'VOS', 'PVT', 'PVS', 'PVD', 'BSR', 'OIL', 'PLX', 'BCG', 'SAM', 
+            'ITA', 'HQC', 'SCR', 'CRE', 'KHG', 'TDC', 'IJC', 'VPI', 'CTD', 'LPB'
+        ]
 
-TOP_MARKET = get_top_liquidity()
+TOP_MARKET = get_top_100_liquidity()
 
 # --- 3. TÍNH TOÁN CHỈ BÁO KỸ THUẬT ---
 def calculate_indicators(df):
-    if df.empty or len(df) < 50: return df
+    if df.empty or len(df) < 20: return df
     
-    # SMA 20 & 50
     df['SMA20'] = df['close'].rolling(window=20).mean()
     df['SMA50'] = df['close'].rolling(window=50).mean()
     
-    # RSI chuẩn (Wilder's Smoothing)
     delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0))
-    loss = (-delta.where(delta < 0, 0))
-    avg_gain = gain.ewm(com=13, min_periods=14).mean()
-    avg_loss = loss.ewm(com=13, min_periods=14).mean()
-    rs = avg_gain / (avg_loss + 1e-9)
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / (loss + 1e-9)
     df['RSI'] = 100 - (100 / (1 + rs))
     
-    # CHIẾN THUẬT: XANH khi giá nằm trên SMA20 và SMA20 > SMA50 (Lọc nhiễu)
-    df['Trend'] = np.where((df['close'] > df['SMA20']), 1, -1)
+    # Xác định xu hướng: Giá > SMA20 là 1 (Mua), ngược lại -1 (Bán)
+    df['Trend'] = np.where(df['close'] > df['SMA20'], 1, -1)
     return df
 
 # --- 4. HÀM LẤY DỮ LIỆU ---
@@ -63,7 +59,7 @@ def get_data(symbol, tf):
     for src in ['VCI', 'DNSE', 'KBS']:
         try:
             stock = Vnstock().stock(symbol=symbol, source=src)
-            df = stock.quote.history(start='2023-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
+            df = stock.quote.history(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
             if df is not None and not df.empty:
                 df['time'] = pd.to_datetime(df['time'])
                 df.set_index('time', inplace=True)
@@ -84,90 +80,94 @@ if mode == "Phân tích chi tiết mã":
         last_row = df.iloc[-1]
         is_green = last_row['Trend'] == 1
         
-        st.markdown(f"<h1 style='text-align: center; color: #800080; font-size: 60px;'>{symbol}</h1>", unsafe_allow_html=True)
-        
-        # Tìm điểm giao cắt
+        st.markdown(f"<h1 style='text-align: center; color: #800080; font-size: 60px; margin-bottom:0px;'>{symbol}</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-weight: bold;'>QUY TẮC GIAO DỊCH: <span style='color:#00ff00'>XANH VÀO</span> - <span style='color:#ff0000'>ĐỎ RA</span></p>", unsafe_allow_html=True)
+
+        # Tìm điểm giao cắt tín hiệu gần nhất
         change = df[df['Trend'] != df['Trend'].shift(1)]
         entry_date = change[change['Trend'] == df['Trend'].iloc[-1]].index[-1] if not change.empty else df.index[0]
-        entry_price = float(df.loc[entry_date, 'close'])
-        last_price = float(last_row['close'])
+        entry_price = df.loc[entry_date, 'close']
+        last_price = last_row['close']
         profit = ((last_price / entry_price) - 1) * 100
         days_held = len(df.loc[entry_date:])
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Giá Hiện Tại", f"{last_price:,.2f}")
-        col2.metric(f"Giá tại điểm {'MUA' if is_green else 'BÁN'}", f"{entry_price:,.2f}")
-        col3.metric("Biến động", f"{profit:.2f}%", delta_color="normal")
+        col_info1, col_info2 = st.columns(2)
+        with col_info1:
+            st.markdown(f"<h3 style='color:blue;'>GIÁ TẠI ĐIỂM {('MUA' if is_green else 'BÁN')}: {entry_price:.2f}</h3>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color:black;'>GIÁ HIỆN TẠI: {last_price:.2f}</h3>", unsafe_allow_html=True)
+        with col_info2:
+            st.write(f"**Ngày Tín Hiệu:** {entry_date.strftime('%d/%m/%Y')}")
+            color_pct = "green" if profit >= 0 else "red"
+            st.markdown(f"**BIẾN ĐỘNG: <span style='color:{color_pct}; font-size:20px;'>{profit:.2f}%</span> | Đã qua {days_held} phiên**", unsafe_allow_html=True)
 
         if is_green:
-            st.success("🟢 VÙNG XANH: Ưu tiên nắm giữ / Mua mới")
+            st.success(f"Khuyến nghị: Đang ở Vùng Xanh (MUA) - Tiếp tục nắm giữ")
         else:
-            st.error("🔴 VÙNG ĐỎ: Ưu tiên đứng ngoài / Bán giảm tỷ trọng")
+            st.error(f"Khuyến nghị: Đang ở Vùng Đỏ (BÁN) - Đứng ngoài quan sát")
 
-        # Biểu đồ
-        fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.6, 0.2, 0.2], vertical_spacing=0.05)
-        fig.add_trace(go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'], name="Giá"), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], line=dict(color='cyan'), name="SMA20"), row=1, col=1)
-        fig.add_trace(go.Bar(x=df.index, y=df['volume'], name="Khối lượng"), row=2, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='purple'), name="RSI"), row=3, col=1)
+        # --- VẼ BIỂU ĐỒ ---
+        fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
+
+        # Nến giá & SMA
+        fig.add_trace(go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'], name="Nến giá"), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], line=dict(color='cyan', width=1.5), name="SMA20"), row=1, col=1)
         
-        fig.update_layout(height=800, template="plotly_dark", xaxis_rangeslider_visible=False)
-        st.plotly_chart(fig, use_container_width=True)
+        # MŨI TÊN TÍN HIỆU MUA/BÁN
+        buy_signals = df[(df['Trend'] == 1) & (df['Trend'].shift(1) == -1)]
+        sell_signals = df[(df['Trend'] == -1) & (df['Trend'].shift(1) == 1)]
+        
+        fig.add_trace(go.Scatter(x=buy_signals.index, y=buy_signals['low']*0.97, mode='markers', marker=dict(symbol='triangle-up', color='lime', size=16), name='Điểm MUA'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=sell_signals.index, y=sell_signals['high']*1.03, mode='markers', marker=dict(symbol='triangle-down', color='red', size=16), name='Điểm BÁN'), row=1, col=1)
+
+        # Volume & RSI
+        colors_vol = ['green' if df['close'].iloc[i] >= df['open'].iloc[i] else 'red' for i in range(len(df))]
+        fig.add_trace(go.Bar(x=df.index, y=df['volume'], marker_color=colors_vol, name="Khối lượng"), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='purple', width=2), name="RSI"), row=3, col=1)
+
+        fig.update_layout(xaxis_rangeslider_visible=False, template="plotly_dark", height=750, margin=dict(l=10, r=10, t=10, b=10), hovermode='x unified')
+        fig.update_xaxes(range=[df.index[-100], df.index[-1]])
+        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
     else:
-        st.error("Không tìm thấy dữ liệu cho mã này.")
+        st.error("⚠️ Không thể kết nối dữ liệu.")
 
 else:
-    st.header(f"🔍 Trình quét 150 mã (Khung: {timeframe})")
-    if st.button("Bắt đầu quét dữ liệu"):
+    st.header(f"🔍 Trình quét tín hiệu (Khung: {timeframe})")
+    if st.button("Bắt đầu quét"):
         results = []
         bar = st.progress(0)
-        
         for i, s in enumerate(TOP_MARKET):
             data = get_data(s, timeframe)
             if not data.empty:
-                try:
-                    last_s = data.iloc[-1]
-                    # Tìm điểm báo tín hiệu
-                    change = data[data['Trend'] != data['Trend'].shift(1)]
-                    entry_date = change[change['Trend'] == data['Trend'].iloc[-1]].index[-1] if not change.empty else data.index[0]
-                    entry_price = float(data.loc[entry_date, 'close'])
-                    current_price = float(last_s['close'])
-                    profit = ((current_price / entry_price) - 1) * 100
-                    
-                    results.append({
-                        "Mã": s,
-                        "Tín hiệu": "🟢 XANH" if last_s['Trend'] == 1 else "🔴 ĐỎ",
-                        "Giá Tín Hiệu": entry_price,
-                        "Giá Hiện Tại": current_price,
-                        "Lời/Lỗ (%)": profit,
-                        "RSI": float(last_s['RSI'])
-                    })
-                except: continue
+                last_s = data.iloc[-1]
+                is_green = last_s['Trend'] == 1
+                status = "🟢 MUA" if is_green else "🔴 BÁN"
+                
+                # Tìm mức giá tại ngày báo tín hiệu
+                change = data[data['Trend'] != data['Trend'].shift(1)]
+                entry_date = change[change['Trend'] == data['Trend'].iloc[-1]].index[-1] if not change.empty else data.index[0]
+                entry_price = data.loc[entry_date, 'close']
+                profit = ((last_s['close'] / entry_price) - 1) * 100
+                
+                results.append({
+                    "Mã": s, 
+                    "Trạng thái": status, 
+                    "Giá Tín Hiệu": entry_price, 
+                    "Giá Hiện Tại": last_s['close'],
+                    "Lời/Lỗ (%)": profit
+                })
             
-            bar.progress((i + 1) / len(TOP_MARKET))
-            time.sleep(0.05) # Giảm tải cho server API
-
-        # --- XỬ LÝ HIỂN THỊ AN TOÀN ---
-        if results:
-            df_res = pd.DataFrame(results)
-            
-            # Làm sạch dữ liệu để tránh lỗi TypeError (CỰC KỲ QUAN TRỌNG)
-            cols_numeric = ["Giá Tín Hiệu", "Giá Hiện Tại", "Lời/Lỗ (%)", "RSI"]
-            for col in cols_numeric:
-                df_res[col] = pd.to_numeric(df_res[col], errors='coerce')
-            
-            df_res = df_res.dropna() # Loại bỏ các dòng lỗi
-            df_res = df_res.sort_values(by="Lời/Lỗ (%)", ascending=False)
-
+            bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
+            time.sleep(0.01) # Tránh bị API block
+        
+        # Format bảng hiển thị đẹp mắt
+        df_res = pd.DataFrame(results)
+        if not df_res.empty:
             st.dataframe(
                 df_res.style.format({
-                    "Giá Tín Hiệu": "{:.2f}",
-                    "Giá Hiện Tại": "{:.2f}",
-                    "Lời/Lỗ (%)": "{:.2f}%",
-                    "RSI": "{:.1f}"
-                }).map(lambda x: 'color: lime' if x == "🟢 XANH" else ('color: red' if x == "🔴 ĐỎ" else ''), subset=['Tín hiệu']),
+                    "Giá Tín Hiệu": "{:.2f}", 
+                    "Giá Hiện Tại": "{:.2f}", 
+                    "Lời/Lỗ (%)": "{:.2f}%"
+                }), 
                 use_container_width=True,
-                height=800
+                height=600
             )
-        else:
-            st.warning("Không lấy được dữ liệu. Vui lòng thử lại sau.")
