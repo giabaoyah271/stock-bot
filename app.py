@@ -51,17 +51,18 @@ def calculate_indicators(df):
 # --- 4. HÀM LẤY DỮ LIỆU ---
 @st.cache_data(ttl=600)
 def get_data(symbol, tf):
-    for src in ['TCBS','VCI', 'DNSE', 'KBS']:
+    sources = ['TCBS', 'DNSE', 'VCI'] 
+    for src in sources:
         try:
             stock = Vnstock().stock(symbol=symbol, source=src)
-            df = stock.quote.history(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
+            df = stock.quote.history(start='2023-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
             if df is not None and not df.empty:
                 df['time'] = pd.to_datetime(df['time'])
                 df.set_index('time', inplace=True)
                 return calculate_indicators(df)
-        except: continue
+        except Exception:
+            continue
     return pd.DataFrame()
-
 # --- 5. GIAO DIỆN CHÍNH ---
 st.sidebar.title("🛠️ Điều khiển")
 mode = st.sidebar.radio("Chế độ", ["Phân tích chi tiết mã", "Quét tín hiệu toàn thị trường"])
