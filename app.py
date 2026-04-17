@@ -156,12 +156,13 @@ else:
         # Format bảng hiển thị đẹp mắt
         df_res = pd.DataFrame(results)
         if not df_res.empty:
-st.dataframe(
-    df_res.style.format({
-        "Giá Tín Hiệu": "{:.2f}", 
-        "Giá Hiện Tại": "{:.2f}", 
-        "Lời/Lỗ (%)": "{:.2f}%"
-    }, na_rep="-"), # Thêm na_rep="-" ở đây
-    use_container_width=True,
-    height=600
-)
+                df_res = df_res.dropna()
+                st.dataframe(
+                        df_res.style.format({
+                                "Giá Tín Hiệu": "{:.2f}", 
+                                "Giá Hiện Tại": "{:.2f}", 
+                                "Lời/Lỗ (%)": "{:.2f}%"
+                        }, na_rep="-"), # Thêm na_rep="-" ở đây
+                        use_container_width=True,
+                        height=600
+                )
