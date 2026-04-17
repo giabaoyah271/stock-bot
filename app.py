@@ -10,26 +10,37 @@ import time
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(page_title="Hệ thống Giao dịch Xanh-Đỏ Pro", layout="wide")
 
-# Mở rộng khung thời gian: Ngày, Tuần, Tháng
+# Mở rộng khung thời gian
 TF_MAP = { 
     "1 Giờ": "1H", 
     "Ngày": "1D", 
     "Tuần": "1W", 
 }
+
 # --- 2. HÀM LẤY TOP 100 THANH KHOẢN ---
 @st.cache_data(ttl=3600)
 def get_top_100_liquidity():
     try:
-        # Lấy từ cả HOSE và HNX để đủ 100 mã lớn nhất
-        stock_tool = Vnstock().market
-        df_hose = stock_tool.top_report(limit=50, category='top_volume', exchange='HOSE')
-        df_hnx = stock_tool.top_report(limit=50, category='top_volume', exchange='HNX')
-        
-        full_list = pd.concat([df_hose, df_hnx])['symbol'].unique().tolist()
-        return full_list[:100]
+        # Lấy top 100 mã có khối lượng giao dịch (Volume) lớn nhất sàn
+        df_top = Vnstock().market.top_report(limit=100, category='top_volume')
+        return df_top['symbol'].tolist()
     except:
-        return ['SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB', 'TCB', 'GEX']
+        # Danh sách dự phòng ĐỦ 100 MÃ sôi động nhất nếu API vnstock bị lỗi kết nối
+        return [
+            'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB', 
+            'TCB', 'GEX', 'VHM', 'VIC', 'VRE', 'VPB', 'ACB', 'HDB', 'CTG', 'BID', 
+            'VCB', 'MSN', 'MWG', 'FPT', 'PNJ', 'GAS', 'SAB', 'VNM', 'BVH', 'POW', 
+            'KBC', 'VGC', 'IDC', 'SZC', 'NLG', 'KDH', 'DXG', 'CEO', 'HAG', 'HSG', 
+            'NKG', 'DGC', 'DPM', 'DCM', 'CSV', 'GVR', 'PHR', 'DPR', 'HCM', 'VCI', 
+            'MBS', 'FTS', 'CTS', 'BSI', 'AGR', 'TCH', 'HHV', 'VCG', 'LCG', 'FCN', 
+            'CII', 'HUT', 'KDC', 'SBT', 'PAN', 'LTG', 'ASM', 'IDI', 'ANV', 'VHC', 
+            'FMC', 'PC1', 'HDG', 'GEG', 'REE', 'NT2', 'VSH', 'TNG', 'TCM', 'GIL', 
+            'HAH', 'VOS', 'PVT', 'PVS', 'PVD', 'BSR', 'OIL', 'PLX', 'BCG', 'SAM', 
+            'ITA', 'HQC', 'SCR', 'CRE', 'KHG', 'TDC', 'IJC', 'VPI', 'CTD', 'LPB'
+        ]
+
 TOP_MARKET = get_top_100_liquidity()
+
 # --- 3. HÀM TÍNH TOÁN CHỈ BÁO KỸ THUẬT ---
 def calculate_indicators(df):
     if df.empty or len(df) < 20: return df
@@ -77,8 +88,9 @@ if mode == "Phân tích chi tiết mã":
         last_row = df.iloc[-1]
         is_green = last_row['Trend'] == 1
         
-        # --- PHẦN HEADER THÔNG TIN (GIỐNG HÌNH 3 NHẤT) ---
-        st.markdown(f"<h1 style='text-align: center; color: #800080; font-size: 60px; margin-bottom:0px;'>{symbol}</h1>", unsafe_allow_True=True)
+        # --- PHẦN HEADER THÔNG TIN ---
+        # Đã sửa lỗi typing ở dòng này (unsafe_allow_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: #800080; font-size: 60px; margin-bottom:0px;'>{symbol}</h1>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-weight: bold;'>QUY TẮC GIAO DỊCH: <span style='color:#00ff00'>XANH VÀO</span> - <span style='color:#ff0000'>ĐỎ RA</span></p>", unsafe_allow_html=True)
 
         # Tính toán thông tin điểm mua/lãi lỗ
@@ -107,7 +119,7 @@ if mode == "Phân tích chi tiết mã":
         else:
             st.error(f"Khuyến nghị: Vùng Đỏ, Đứng ngoài quan sát")
 
-        # --- BIỂU ĐỒ NÂNG CẤP (TỰ DO CO GIÃN) ---
+        # --- BIỂU ĐỒ NÂNG CẤP ---
         fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
                            vertical_spacing=0.05, 
                            row_heights=[0.6, 0.2, 0.2])
@@ -127,12 +139,12 @@ if mode == "Phân tích chi tiết mã":
         fig.add_trace(go.Bar(x=df.index, y=df['volume'], marker_color=colors_vol, name="Khối lượng"), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='purple', width=2), name="RSI"), row=3, col=1)
 
-        # D. Cấu hình Zoom (ĐÃ SỬA: Cho phép cuộn chuột để co giãn nến tự do)
+        # D. Cấu hình Zoom (Cho phép cuộn chuột để co giãn nến tự do)
         fig.update_layout(
             xaxis_rangeslider_visible=False, 
             template="plotly_dark", 
             height=800,
-            dragmode='zoom', # Chế độ Zoom giúp quét chọn vùng hoặc dùng cuộn chuột
+            dragmode='zoom', 
             margin=dict(l=10, r=10, t=10, b=10),
             hovermode='x unified'
         )
@@ -142,7 +154,7 @@ if mode == "Phân tích chi tiết mã":
         # Hiển thị biểu đồ với config scrollZoom
         st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
     else:
-        st.error("⚠️ Không thể kết nối dữ liệu mã này.")
+        st.error("⚠️ Không thể kết nối dữ liệu mã này. Vui lòng kiểm tra lại mã hoặc đổi Khung thời gian.")
 
 else:
     st.header(f"🔍 Trình quét Top 100 thanh khoản (Khung: {timeframe})")
@@ -155,7 +167,10 @@ else:
                 last_s = data.iloc[-1]
                 status = "🟢 MUA" if last_s['Trend'] == 1 else "🔴 BÁN"
                 results.append({"Mã": s, "Trạng thái": status, "Giá": last_s['close'], "RSI": round(last_s['RSI'],1)})
-            bar.progress((i + 1) / len(TOP_MARKET))
+            
+            # Cập nhật thanh tiến trình
+            progress_val = min((i + 1) / len(TOP_MARKET), 1.0)
+            bar.progress(progress_val)
             time.sleep(0.05)
         
         st.dataframe(pd.DataFrame(results), use_container_width=True)
