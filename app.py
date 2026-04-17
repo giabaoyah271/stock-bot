@@ -50,7 +50,7 @@ def calculate_indicators(df):
 # --- 4. HÀM LẤY DỮ LIỆU ---
 @st.cache_data(ttl=600)
 def get_data(symbol, tf):
-    for src in ['VCI', 'DNSE', 'KBS']:
+    for src in ['TCBS','VCI', 'DNSE', 'KBS']:
         try:
             stock = Vnstock().stock(symbol=symbol, source=src)
             df = stock.quote.history(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
@@ -151,7 +151,7 @@ else:
                 })
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(0.01) # Tránh bị API block
+            time.sleep(0.1) # Tránh bị API block
         
         # Format bảng hiển thị đẹp mắt
         df_res = pd.DataFrame(results)
