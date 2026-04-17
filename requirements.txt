@@ -4,3 +4,4 @@ vnstock3
 plotly
 numpy
 ipython
+requests
