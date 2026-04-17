@@ -165,7 +165,7 @@ else:
                     "Giá Hiện Tại": "{:.2f}",
                     "Lời/Lỗ (%)": "{:.2f}%",
                     "RSI": "{:.1f}"
-                }).applymap(lambda x: 'color: lime' if x == "🟢 XANH" else ('color: red' if x == "🔴 ĐỎ" else ''), subset=['Tín hiệu']),
+                }).map(lambda x: 'color: lime' if x == "🟢 XANH" else ('color: red' if x == "🔴 ĐỎ" else ''), subset=['Tín hiệu']),
                 use_container_width=True,
                 height=800
             )
