@@ -14,9 +14,9 @@ TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 
 # --- 2. HÀM LẤY TOP 100 THANH KHOẢN ---
 @st.cache_data(ttl=3600)
-def get_top_100_liquidity():
+def get_top_150_liquidity():
     try:
-        df_top = Vnstock().market.top_report(limit=100, category='top_volume')
+        df_top = Vnstock().market.top_report(limit=150, category='top_volume')
         return df_top['symbol'].tolist()
     except:
         return [
@@ -37,7 +37,7 @@ def get_top_100_liquidity():
     'PVC', 'PSH', 'ASP', 'HT1', 'BCC', 'PLC', 'DHA', 'KSB', 'NNC', 'BMP'
         ]
 
-TOP_MARKET = get_top_100_liquidity()
+TOP_MARKET = get_top_150_liquidity()
 
 # --- 3. TÍNH TOÁN CHỈ BÁO KỸ THUẬT ---
 def calculate_indicators(df):
