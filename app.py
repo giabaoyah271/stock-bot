@@ -155,19 +155,25 @@ else:
         tickers = get_top_100_liquidity()
         results = []
         for ticker in tickers:
-            try:               
+            try:
+                gia_tri_tin_hieu = float(gia_entry) # Giá tại thời điểm báo MUA/BÁN
+                gia_thi_truong = float(price_now)   # Giá thực tế hiện tại
+                phần_trăm_loi = float(profit_pct)   # % Lời lỗ đã tính
+                tín_hiệu = str(signal_type)         # "MUA" hoặc "BÁN"
                 results.append({
                     "Mã": ticker,
-                    "Trạng thái": "MUA", 
-                    "Giá Tín Hiệu": 28.5, # Thay bằng biến của bạn
-                    "Giá Hiện Tại": 29.0, # Thay bằng biến của bạn
-                    "Lời/Lỗ (%)": 1.75   # Thay bằng biến của bạn
+                    "Trạng thái": tín_hiệu, 
+                    "Giá Tín Hiệu": gia_tri_tin_hieu, # Dùng biến, không dùng số cố định
+                    "Giá Hiện Tại": gia_thi_truong,  # Dùng biến, không dùng số cố định
+                    "Lời/Lỗ (%)": phần_trăm_loi      # Dùng biến, không dùng số cố định
                 })
-            except:
-                # Nếu mã nào lỗi, vẫn thêm vào để bảng đủ dòng
+            except Exception as e:
                 results.append({
-                    "Mã": ticker, "Trạng thái": "Lỗi", 
-                    "Giá Tín Hiệu": None, "Giá Hiện Tại": None, "Lời/Lỗ (%)": None
+                    "Mã": ticker, 
+                    "Trạng thái": "Lỗi", 
+                    "Giá Tín Hiệu": None, 
+                    "Giá Hiện Tại": None, 
+                    "Lời/Lỗ (%)": None
                 })
         df_res = pd.DataFrame(results)
         if not df_res.empty:
