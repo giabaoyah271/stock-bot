@@ -16,14 +16,25 @@ TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 @st.cache_data(ttl=3600)
 def get_top_100_liquidity():
     try:
-        # Lấy trực tiếp top 100 thanh khoản thời gian thực
         df_top = Vnstock().market.top_report(limit=100, category='top_volume')
         return df_top['symbol'].tolist()
     except:
-        # Danh sách dự phòng nếu API nghẽn
         return [
-            'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB', 
-            'ITA', 'HQC', 'SCR', 'CRE', 'KHG', 'TDC', 'IJC', 'VPI', 'CTD', 'LPB'
+           'SSI', 'VIX', 'VND', 'SHS', 'HPG', 'DIG', 'NVL', 'PDR', 'STB', 'MBB',
+    'ITA', 'HQC', 'SCR', 'CRE', 'KHG', 'TDC', 'IJC', 'VPI', 'CTD', 'LPB',
+    'FPT', 'MWG', 'MSN', 'VIC', 'VHM', 'VCB', 'BID', 'CTG', 'TCB', 'VPB',
+    'ACB', 'HDB', 'SHB', 'VIB', 'TPB', 'MSB', 'OCB', 'EIB', 'SSB', 'GVR',
+    'VNM', 'GAS', 'POW', 'PLX', 'HAG', 'HSG', 'NKG', 'DXG', 'NLG', 'KDH',
+    'CEO', 'L14', 'VCI', 'HCM', 'MBS', 'FTS', 'CTS', 'BSI', 'AGR', 'DGC',
+    'DPM', 'DCM', 'PVD', 'PVS', 'PVT', 'BSR', 'VRE', 'GMD', 'VJC', 'HVN',
+    'REE', 'PC1', 'VCG', 'HHV', 'LCG', 'C4G', 'FCN', 'CII', 'VGC', 'KBC',
+    'SZC', 'IDC', 'HAH', 'VOS', 'DGW', 'FRT', 'SAB', 'PNJ', 'DBC', 'PAN',
+    'ANV', 'IDI', 'VHC', 'GEG', 'NT2', 'PPC', 'TV2', 'CSV', 'BFC', 'LAS',
+    'PHR', 'DPR', 'VGT', 'MSH', 'TCM', 'LSS', 'SBT', 'QCG', 'DXS', 'LDG',
+    'SAM', 'CMG', 'ELC', 'ORS', 'VDS', 'TVS', 'TVB', 'BVB', 'ABB', 'NAB',
+    'HID', 'PVI', 'VTB', 'C32', 'SBG', 'FIT', 'TSC', 'TCH', 'HHS', 'EVG',
+    'BCG', 'ASM', 'TIG', 'MST', 'TCD', 'TVN', 'VNB', 'VIP', 'VTO', 'PVB',
+    'PVC', 'PSH', 'ASP', 'HT1', 'BCC', 'PLC', 'DHA', 'KSB', 'NNC', 'BMP'
         ]
 
 TOP_MARKET = get_top_100_liquidity()
