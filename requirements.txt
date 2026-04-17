@@ -1,4 +1,4 @@
 streamlit
-pandas-ta
 vnstock
+pandas-ta
 plotly
