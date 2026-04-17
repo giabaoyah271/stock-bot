@@ -155,8 +155,8 @@ else:
 if st.button("Bắt đầu quét"):
         results = []
         for ticker in tickers:
-                    # ...
-                    results.append({"Mã": ticker, ...})
+            # ...
+            results.append({"Mã": ticker, ...})
         df_res = pd.DataFrame(results)
         if not df_res.empty:
             # Ép kiểu số để tính toán và định dạng chính xác
