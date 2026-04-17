@@ -152,17 +152,25 @@ else:
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
             time.sleep(0.1) # Tránh bị API block
-        # Format bảng hiển thị đẹp mắt
         df_res = pd.DataFrame(results)
-        df_res = df_res.dropna() # Xóa các mã không tính toán được giá hoặc lời/lỗ
         if not df_res.empty:
-                df_res = df_res.dropna()
-                st.dataframe(
-                        df_res.style.format({
-                                "Giá Tín Hiệu": "{:.2f}", 
-                                "Giá Hiện Tại": "{:.2f}", 
-                                "Lời/Lỗ (%)": "{:.2f}%"
-                        }, na_rep="-"), # Thêm na_rep="-" ở đây
-                        use_container_width=True,
-                        height=600
-                )
+            # Đảm bảo các cột số thực sự là kiểu số
+            df_res["Giá Tín Hiệu"] = pd.to_numeric(df_res["Giá Tín Hiệu"], errors='coerce')
+            df_res["Giá Hiện Tại"] = pd.to_numeric(df_res["Giá Hiện Tại"], errors='coerce')
+            df_res["Lời/Lỗ (%)"] = pd.to_numeric(df_res["Lời/Lỗ (%)"], errors='coerce')
+            
+            # Xóa các dòng bị lỗi dữ liệu (nếu có)
+            df_res = df_res.dropna()
+
+            # 2. Hiển thị bảng bằng column_config (Cực kỳ ổn định, không lo lỗi TypeError)
+            st.dataframe(
+                df_res,
+                column_config={
+                    "Giá Tín Hiệu": st.column_config.NumberColumn("Giá Tín Hiệu", format="%.2f"),
+                    "Giá Hiện Tại": st.column_config.NumberColumn("Giá Hiện Tại", format="%.2f"),
+                    "Lời/Lỗ (%)": st.column_config.NumberColumn("Lời/Lỗ (%)", format="%.2f%%"),
+                },
+                use_container_width=True,
+                height=600,
+                hide_index=True # Ẩn cột chỉ số cho bảng đẹp hơn
+            )
