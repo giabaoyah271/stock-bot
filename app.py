@@ -66,7 +66,9 @@ def get_data(symbol, tf):
 st.sidebar.title("🛠️ Điều khiển")
 mode = st.sidebar.radio("Chế độ", ["Phân tích chi tiết mã", "Quét tín hiệu toàn thị trường"])
 timeframe = st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
+import random
 def process_stock_parallel(s, timeframe):
+    time.sleep(random.uniform(0.5, 1.5))
     data = get_data(s, timeframe)
     if not data.empty:
         last_s = data.iloc[-1]
