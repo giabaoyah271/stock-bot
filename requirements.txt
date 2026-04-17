@@ -1,5 +1,5 @@
 streamlit
 pandas
-vnstock
+vnstock3
 plotly
 numpy
