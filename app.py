@@ -1,3 +1,4 @@
+import concurrent.futures
 import streamlit as st
 import pandas as pd
 from vnstock import Vnstock
@@ -65,7 +66,32 @@ def get_data(symbol, tf):
 st.sidebar.title("🛠️ Điều khiển")
 mode = st.sidebar.radio("Chế độ", ["Phân tích chi tiết mã", "Quét tín hiệu toàn thị trường"])
 timeframe = st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
-
+def process_stock_parallel(s, timeframe):
+    data = get_data(s, timeframe)
+    if not data.empty:
+        last_s = data.iloc[-1]
+        is_green = last_s['Trend'] == 1
+        status = "🟢 MUA" if is_green else "🔴 BÁN"
+        
+        # Tìm mức giá tại ngày báo tín hiệu
+        change = data[data['Trend'] != data['Trend'].shift(1)]
+        entry_date = change[change['Trend'] == data['Trend'].iloc[-1]].index[-1] if not change.empty else data.index[0]
+        entry_price = data.loc[entry_date, 'close']
+        profit = ((last_s['close'] / entry_price) - 1) * 100
+        
+        return {
+            "Mã": s, 
+            "Trạng thái": status, 
+            "Giá Tín Hiệu": entry_price, 
+            "Giá Hiện Tại": last_s['close'],
+            "Lời/Lỗ (%)": profit
+        }
+    else:
+        # NẾU LỖI: Vẫn trả về hàng trống để giữ đủ 100 mã
+        return {
+            "Mã": s, "Trạng thái": "⚠️ Lỗi kết nối", 
+            "Giá Tín Hiệu": None, "Giá Hiện Tại": None, "Lời/Lỗ (%)": None
+        }
 if mode == "Phân tích chi tiết mã":
     symbol = st.sidebar.text_input("Nhập mã cổ phiếu", "HPG").upper()
     df = get_data(symbol, timeframe)
@@ -126,55 +152,52 @@ if mode == "Phân tích chi tiết mã":
 
 else:
     st.header(f"🔍 Trình quét tín hiệu (Khung: {timeframe})")
-    if st.button("Bắt đầu phân tích"):
+    if st.button("Bắt đầu phân tích hệ thống"):
         results = []
-        bar = st.progress(0)
-        for i, s in enumerate(TOP_MARKET):
-            data = get_data(s, timeframe)
-            if not data.empty:
-                last_s = data.iloc[-1]
-                is_green = last_s['Trend'] == 1
-                status = "🟢 MUA" if is_green else "🔴 BÁN"
-                
-                # Tìm mức giá tại ngày báo tín hiệu
-                change = data[data['Trend'] != data['Trend'].shift(1)]
-                entry_date = change[change['Trend'] == data['Trend'].iloc[-1]].index[-1] if not change.empty else data.index[0]
-                entry_price = data.loc[entry_date, 'close']
-                profit = ((last_s['close'] / entry_price) - 1) * 100
-                
-                results.append({
-                    "Mã": s, 
-                    "Trạng thái": status, 
-                    "Giá Tín Hiệu": entry_price, 
-                    "Giá Hiện Tại": last_s['close'],
-                    "Lời/Lỗ (%)": profit
-                })
+        progress_text = "Đang quét 100 mã thanh khoản cao nhất..."
+        bar = st.progress(0, text=progress_text)
+        
+        # SỬ DỤNG ĐA LUỒNG ĐỂ QUÉT NHANH (Max 10 luồng để tránh bị chặn)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            # Tạo danh sách các công việc
+            future_to_stock = {executor.submit(process_stock_parallel, s, timeframe): s for s in TOP_MARKET}
             
-            bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(0.9) # Tránh bị API block
+            completed = 0
+            for future in concurrent.futures.as_completed(future_to_stock):
+                res = future.result()
+                results.append(res)
+                completed += 1
+                # Cập nhật thanh tiến trình
+                bar.progress(completed / len(TOP_MARKET), text=f"Đã xử lý {completed}/100 mã...")
+
         df_res = pd.DataFrame(results)
+        
         if not df_res.empty:
-            # Ép kiểu số để tính toán và định dạng chính xác
+            # 1. Ép kiểu dữ liệu để định dạng
             cols_to_fix = ["Giá Tín Hiệu", "Giá Hiện Tại", "Lời/Lỗ (%)"]
             for col in cols_to_fix:
-                if col in df_res.columns:
-                    df_res[col] = pd.to_numeric(df_res[col], errors='coerce')
-            # --- PHẦN QUAN TRỌNG: TẠO CỘT STT ---
-            # Sắp xếp lại index và tạo cột STT bắt đầu từ 1
+                df_res[col] = pd.to_numeric(df_res[col], errors='coerce')
+            
+            # 2. Sắp xếp lại để các mã lỗi xuống dưới, mã MUA lên trên (Tùy chọn)
+            df_res = df_res.sort_values(by="Trạng thái", ascending=False)
+            
+            # 3. Tạo cột STT chuẩn xác từ 1-100
             df_res = df_res.reset_index(drop=True)
             df_res.insert(0, "STT", range(1, len(df_res) + 1))
-            # 2. Hiển thị bảng
+            
+            # 4. Hiển thị bảng
             st.dataframe(
                 df_res,
                 column_config={
                     "STT": st.column_config.NumberColumn("STT", width="small"),
-                    "Giá Tín Hiệu": st.column_config.NumberColumn("Giá Tín Hiệu", format="%.2f"),
+                    "Giá Tín Hiệu": st.column_config.NumberColumn("Giá Mua", format="%.2f"),
                     "Giá Hiện Tại": st.column_config.NumberColumn("Giá Hiện Tại", format="%.2f"),
-                    "Lời/Lỗ (%)": st.column_config.NumberColumn("Lời/Lỗ (%)", format="%.2f%%"),
+                    "Lời/Lỗ (%)": st.column_config.NumberColumn("Lãi/Lỗ", format="%.2f%%"),
                 },
                 use_container_width=True,
                 height=600,
-                hide_index=True # Ẩn cột chỉ số mặc định của Pandas để dùng cột STT mình tự tạo
+                hide_index=True
             )
+            st.success(f"Hoàn tất quét {len(df_res)} mã cổ phiếu!")
         else:
             st.warning("Không có dữ liệu nào được tìm thấy.")
