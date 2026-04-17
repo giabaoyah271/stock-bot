@@ -27,7 +27,7 @@ df = load_data(symbol)
 if not df.empty:
     # 1. Tính toán chỉ báo
     # Ichimoku
-    ichi = ta.ichimoku(df['high'], df['low'], df['close'])[0]
+    ichi = ichimoku(df['high'], df['low'], df['close'])[0]
     df = pd.concat([df, ichi], axis=1)
     
     # SMA, RSI, MACD
