@@ -1,3 +1,5 @@
 streamlit
+pandas
 vnstock
 plotly
+numpy
