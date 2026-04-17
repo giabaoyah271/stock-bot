@@ -151,30 +151,7 @@ else:
                 })
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(0.5) # Tránh bị API block
-        tickers = get_top_100_liquidity()
-        results = []
-        for ticker in tickers:
-            try:
-                gia_tri_tin_hieu = float(gia_entry) # Giá tại thời điểm báo MUA/BÁN
-                gia_thi_truong = float(price_now)   # Giá thực tế hiện tại
-                phần_trăm_loi = float(profit_pct)   # % Lời lỗ đã tính
-                tín_hiệu = str(signal_type)         # "MUA" hoặc "BÁN"
-                results.append({
-                    "Mã": ticker,
-                    "Trạng thái": tín_hiệu, 
-                    "Giá Tín Hiệu": gia_tri_tin_hieu, # Dùng biến, không dùng số cố định
-                    "Giá Hiện Tại": gia_thi_truong,  # Dùng biến, không dùng số cố định
-                    "Lời/Lỗ (%)": phần_trăm_loi      # Dùng biến, không dùng số cố định
-                })
-            except Exception as e:
-                results.append({
-                    "Mã": ticker, 
-                    "Trạng thái": "Lỗi", 
-                    "Giá Tín Hiệu": None, 
-                    "Giá Hiện Tại": None, 
-                    "Lời/Lỗ (%)": None
-                })
+            time.sleep(0.75) # Tránh bị API block
         df_res = pd.DataFrame(results)
         if not df_res.empty:
             # Ép kiểu số để tính toán và định dạng chính xác
