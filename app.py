@@ -158,7 +158,7 @@ else:
         bar = st.progress(0, text=progress_text)
         
         # SỬ DỤNG ĐA LUỒNG ĐỂ QUÉT NHANH (Max 10 luồng để tránh bị chặn)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             # Tạo danh sách các công việc
             future_to_stock = {executor.submit(process_stock_parallel, s, timeframe): s for s in TOP_MARKET}
             
