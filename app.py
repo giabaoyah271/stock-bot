@@ -9,7 +9,6 @@ import time
 
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(page_title="Hệ thống Giao dịch Xanh-Đỏ", layout="wide")
-
 TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 
 # --- 2. HÀM LẤY TOP 100 THANH KHOẢN ---
@@ -34,7 +33,6 @@ TOP_MARKET = get_top_100_liquidity()
 def calculate_indicators(df):
     if df.empty or len(df) < 200: 
         return df
-    
     # --- A. TÍNH TOÁN CÁC CHỈ BÁO ---
     df['SMA20'] = df['close'].rolling(window=20).mean()
     df['SMA50'] = df['close'].rolling(window=50).mean()
@@ -184,7 +182,11 @@ def calculate_indicators(df):
         reasons.append(", ".join(reason_list) if reason_list else "Trung lập")
         
         # --- BƯỚC 1: XỬ LÝ CẮT LỖ CỨNG (QUẢN TRỊ RỦI RO 2%) ---
-        days_in_trade = len(trends) - (len(trends) - trends[::-1].index(-1) - 1) if 1 in trends else 0
+        try:
+            last_red_index = len(trends) - 1 - trends[::-1].index(-1)
+            days_in_trade = len(trends) - last_red_index
+        except ValueError:
+            days_in_trade = len(trends)
 
         if current_trend == 1 and entry_price > 0:
             loss_pct = ((row['close'] / entry_price) - 1) * 100
@@ -321,7 +323,6 @@ if mode == "Phân tích chi tiết mã":
         # MŨI TÊN TÍN HIỆU MUA/BÁN
         buy_signals = df[(df['Trend'] == 1) & (df['Trend'].shift(1) == -1)]
         sell_signals = df[(df['Trend'] == -1) & (df['Trend'].shift(1) == 1)]
-        
         fig.add_trace(go.Scatter(x=buy_signals.index, y=buy_signals['low']*0.97, mode='markers', marker=dict(symbol='triangle-up', color='lime', size=16), name='Điểm MUA'), row=1, col=1)
         fig.add_trace(go.Scatter(x=sell_signals.index, y=sell_signals['high']*1.03, mode='markers', marker=dict(symbol='triangle-down', color='red', size=16), name='Điểm BÁN'), row=1, col=1)
 
@@ -335,7 +336,6 @@ if mode == "Phân tích chi tiết mã":
         st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
     else:
         st.error("⚠️ Không thể kết nối dữ liệu.")
-
 else:
     st.header(f"🔍 Trình quét tín hiệu (Khung: {timeframe})")
     if st.button("Bắt đầu phân tích"):
