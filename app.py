@@ -266,11 +266,14 @@ else:
                     "Trạng thái": status, 
                     "Giá Tín Hiệu": entry_price, 
                     "Giá Hiện Tại": last_s['close'],
-                    "Lời/Lỗ (%)": profit
+                    "Lời/Lỗ (%)": profit,
+                    "% Đồng Thuận Mua": last_s['Buy_Pct'],
+                    "% Đồng Thuận Bán": last_s['Sell_Pct'],
+                    "Lý do": last_s['Reason']
                 })
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(1.5) # Tránh bị API block
+            time.sleep(1.4) # Tránh bị API block
         df_res = pd.DataFrame(results)
         if not df_res.empty:
             # Ép kiểu số để tính toán và định dạng chính xác
@@ -290,6 +293,8 @@ else:
                     "Giá Tín Hiệu": st.column_config.NumberColumn("Giá Tín Hiệu", format="%.2f"),
                     "Giá Hiện Tại": st.column_config.NumberColumn("Giá Hiện Tại", format="%.2f"),
                     "Lời/Lỗ (%)": st.column_config.NumberColumn("Lời/Lỗ (%)", format="%.2f%%"),
+                    "% Đồng Thuận Mua": st.column_config.ProgressColumn("% MUA", format="%f%%", min_value=0, max_value=100),
+                    "% Đồng Thuận Bán": st.column_config.ProgressColumn("% BÁN", format="%f%%", min_value=0, max_value=100),
                 },
                 use_container_width=True,
                 height=600,
