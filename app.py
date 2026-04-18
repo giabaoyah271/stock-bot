@@ -54,17 +54,7 @@ def calculate_indicators(df):
     df['BB_std'] = df['close'].rolling(window=20).std()
     df['BB_upper'] = df['BB_mid'] + 2 * df['BB_std']
     df['BB_lower'] = df['BB_mid'] - 2 * df['BB_std']
-        
-    up_move = df['high'] - df['high'].shift(1)
-    down_move = df['low'].shift(1) - df['low']
-    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
-    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-    # Smooth DM với 14 phiên
-    df['+DI'] = 100 * (pd.Series(plus_dm, index=df.index).rolling(window=14).mean() / df['ATR'])
-    df['-DI'] = 100 * (pd.Series(minus_dm, index=df.index).rolling(window=14).mean() / df['ATR'])
-    dx = 100 * np.abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI'] + 1e-9)
-    df['ADX'] = dx.rolling(window=14).mean()
-        
+           
     typical_price = (df['high'] + df['low'] + df['close']) / 3
     money_flow = typical_price * df['volume']
     positive_flow = money_flow.where(typical_price > typical_price.shift(1), 0).rolling(window=14).sum()
@@ -77,6 +67,11 @@ def calculate_indicators(df):
     df['Senkou_Span_B'] = ((df['high'].rolling(window=52).max() + df['low'].rolling(window=52).min()) / 2).shift(26)
     
     df['Vol_Avg'] = df['volume'].rolling(window=20).mean()
+    high_low = df['high'] - df['low']
+    high_close = np.abs(df['high'] - df['close'].shift(1))
+    low_close = np.abs(df['low'] - df['close'].shift(1))
+    true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    df['ATR'] = true_range.rolling(window=14).mean()
 
     # --- B. LOGIC CHẤM ĐIỂM TRỌNG SỐ & QUẢN TRỊ RỦI RO ---
     trends = []
@@ -85,7 +80,7 @@ def calculate_indicators(df):
     reasons = []      # THÊM MỚI
     current_trend = -1  # Mặc định là Đỏ (Bán)
     entry_price = 0.0   # Biến lưu giá vốn để tính cắt lỗ
-    
+    trailing_stop = 0.0 # THÊM MỚI: Biến lưu giá cắt lỗ động
     for i in range(len(df)):
         row = df.iloc[i]
         
@@ -99,7 +94,7 @@ def calculate_indicators(df):
             
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 13.0 # Tổng điểm tuyệt đối
+        max_score = 12.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
         # 1. NHÓM CỐT LÕI (Trọng số cao: 2.0 điểm)
@@ -135,10 +130,7 @@ def calculate_indicators(df):
         if row['MACD'] < row['Signal_Line']: sell_score += 1.0; reason_list.append("MACD Cắt xuống")
         if row['close'] < row['BB_lower']: buy_score += 1.0; reason_list.append("Chạm BB dưới")
         if row['close'] > row['BB_upper']: sell_score += 1.0; reason_list.append("Chạm BB trên")
-        if row['ADX'] > 25 and row['+DI'] > row['-DI']:
-            buy_score += 1.0; reason_list.append("Trend tăng mạnh (ADX>25)")
-        if row['ADX'] > 25 and row['-DI'] > row['+DI']:
-            sell_score += 1.0; reason_list.append("Trend giảm mạnh (ADX>25)")
+
         # --- QUY ĐỔI RA PHẦN TRĂM VÀ LƯU LẠI ---
         buy_pct = (buy_score / max_score) * 100
         sell_pct = (sell_score / max_score) * 100
@@ -151,11 +143,17 @@ def calculate_indicators(df):
         days_in_trade = len(trends) - (len(trends) - trends[::-1].index(-1) - 1) if 1 in trends else 0
 
         if current_trend == 1 and entry_price > 0:
-            loss_pct = ((row['close'] / entry_price) - 1) * 100
-            # Chỉ cho phép báo Bán khi đã cầm cổ phiếu ít nhất 3 phiên (Quy tắc T+)
-            if loss_pct <= -5.0 and days_in_trade >= 3: 
+            # Tính mức dừng lỗ của phiên hiện tại (Hệ số nhân ATR thường là 2 hoặc 1.5)
+            current_stop = row['close'] - (2 * row['ATR'])
+            
+            # Dời stoploss lên nếu giá tăng, tuyệt đối không hạ stoploss xuống
+            trailing_stop = max(trailing_stop, current_stop)
+            
+            # Chỉ cho phép báo Bán khi đã cầm cổ phiếu ít nhất 3 phiên (Quy tắc T+) và Giá thủng Cắt lỗ động
+            if row['close'] <= trailing_stop and days_in_trade >= 3: 
                 current_trend = -1
                 entry_price = 0.0
+                trailing_stop = 0.0
                 trends.append(current_trend)
                 continue
                 
@@ -163,10 +161,12 @@ def calculate_indicators(df):
         if buy_pct >= 55:
             if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
                 entry_price = row['close'] # Ghi nhận giá lúc báo Mua
+                trailing_stop = row['close'] - (2 * row['ATR']) # Thiết lập giá cắt lỗ động ban đầu
             current_trend = 1
         elif sell_pct >= 30:
             current_trend = -1
             entry_price = 0.0          # Bán chốt lời/cắt lỗ xong thì xóa vị thế
+            trailing_stop = 0.0        # Xóa mức cắt lỗ động
             
         trends.append(current_trend)
         
@@ -215,7 +215,10 @@ if mode == "Phân tích chi tiết mã":
         days_held = len(df.loc[entry_date:])
 
         # Tính toán các mức giá (Bạn có thể tự chỉnh sửa công thức % này theo ý muốn)
-        stop_loss = entry_price * 0.98 if is_green else entry_price * 1.02 
+        if is_green:
+            stop_loss = last_price - (2 * last_row['ATR']) 
+        else:
+            stop_loss = 0.0 # Nếu đang ở Vùng Đỏ (đứng ngoài) thì không có giá cắt lỗ 
         target_1 = entry_price * 1.1
         target_2 = entry_price * 1.3
         target_3 = entry_price * 1.44
