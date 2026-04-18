@@ -54,12 +54,17 @@ def calculate_indicators(df):
     df['BB_std'] = df['close'].rolling(window=20).std()
     df['BB_upper'] = df['BB_mid'] + 2 * df['BB_std']
     df['BB_lower'] = df['BB_mid'] - 2 * df['BB_std']
-
+        
     up_move = df['high'] - df['high'].shift(1)
     down_move = df['low'].shift(1) - df['low']
     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
     minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-
+    # Smooth DM với 14 phiên
+    df['+DI'] = 100 * (pd.Series(plus_dm, index=df.index).rolling(window=14).mean() / df['ATR'])
+    df['-DI'] = 100 * (pd.Series(minus_dm, index=df.index).rolling(window=14).mean() / df['ATR'])
+    dx = 100 * np.abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI'] + 1e-9)
+    df['ADX'] = dx.rolling(window=14).mean()
+        
     typical_price = (df['high'] + df['low'] + df['close']) / 3
     money_flow = typical_price * df['volume']
     positive_flow = money_flow.where(typical_price > typical_price.shift(1), 0).rolling(window=14).sum()
