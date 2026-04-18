@@ -43,6 +43,15 @@ def calculate_indicators(df):
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     df['RSI'] = 100 - (100 / (1 + gain / (loss + 1e-9)))
+    df['Price_Min_10'] = df['low'].rolling(window=10).min()
+    df['Price_Max_10'] = df['high'].rolling(window=10).max()
+    df['RSI_Min_10'] = df['RSI'].rolling(window=10).min()
+    df['RSI_Max_10'] = df['RSI'].rolling(window=10).max()
+    # Lưu giá trị đỉnh/đáy của giai đoạn trước đó (phiên 11 đến 20)
+    df['Prev_Price_Min'] = df['Price_Min_10'].shift(10)
+    df['Prev_Price_Max'] = df['Price_Max_10'].shift(10)
+    df['Prev_RSI_Min'] = df['RSI_Min_10'].shift(10)
+    df['Prev_RSI_Max'] = df['RSI_Max_10'].shift(10)
     
     exp1 = df['close'].ewm(span=12, adjust=False).mean()
     exp2 = df['close'].ewm(span=26, adjust=False).mean()
@@ -96,7 +105,6 @@ def calculate_indicators(df):
     trailing_stop = 0.0 # THÊM MỚI: Biến lưu giá cắt lỗ động
     for i in range(len(df)):
         row = df.iloc[i]
-        
         # Bỏ qua giai đoạn đầu chưa đủ dữ liệu vẽ mây Ichimoku và MA200
         if pd.isna(row['SMA200']) or pd.isna(row['Senkou_Span_B']):
             trends.append(-1)
@@ -104,10 +112,9 @@ def calculate_indicators(df):
             sell_pcts.append(0)
             reasons.append("Chưa đủ dữ liệu")
             continue
-            
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 14.0 # Tổng điểm tuyệt đối
+        max_score = 15.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
         # 1. NHÓM CỐT LÕI 
@@ -118,9 +125,9 @@ def calculate_indicators(df):
             
         if row['volume'] > 1.5 * row['Vol_Avg']: 
             if row['close'] > row['open']: 
-                buy_score += 2.0; reason_list.append("Cầu mạnh (Vol đột biến)")
+                buy_score += 1.5; reason_list.append("Cầu mạnh (Vol đột biến)")
             elif row['close'] < row['open']:
-                sell_score += 2.0; reason_list.append("Bán tháo (Vol đột biến)")
+                sell_score += 1.5; reason_list.append("Bán tháo (Vol đột biến)")
             else:
                 pass
                 
@@ -132,13 +139,22 @@ def calculate_indicators(df):
         # Nếu ADX > 25: Xu hướng mạnh, tin tưởng vào các chỉ báo hướng
         if row['ADX'] > 25:
             if row['Plus_DI'] > row['Minus_DI']:
-                buy_score += 2.0; reason_list.append("Trend tăng mạnh (ADX)")
+                buy_score += 1.5; reason_list.append("Trend tăng mạnh (ADX)")
             elif row['Minus_DI'] > row['Plus_DI']:
-                sell_score += 2.0; reason_list.append("Trend giảm mạnh (ADX)")
+                sell_score += 1.5; reason_list.append("Trend giảm mạnh (ADX)")
         # Nếu ADX < 20: Thị trường đi ngang, trừ điểm để cảnh báo rủi ro tín hiệu giả
         elif row['ADX'] < 20:
             reason_list.append("Sideways (ADX thấp)")
-        
+        # Giá tạo đáy thấp hơn nhưng RSI tạo đáy cao hơn
+        if row['Price_Min_10'] < row['Prev_Price_Min'] and row['RSI_Min_10'] > row['Prev_RSI_Min']:
+            if row['RSI'] < 45: # Chỉ xét khi RSI ở vùng thấp
+                buy_score += 2.0
+                reason_list.append("Phân kỳ Dương RSI (Đảo chiều tăng)")
+        # Giá tạo đỉnh cao hơn nhưng RSI tạo đỉnh thấp hơn
+        if row['Price_Max_10'] > row['Prev_Price_Max'] and row['RSI_Max_10'] < row['Prev_RSI_Max']:
+            if row['RSI'] > 55: # Chỉ xét khi RSI ở vùng cao
+                sell_score += 2.0
+                reason_list.append("Phân kỳ Âm RSI (Đảo chiều giảm)")
         # 2. NHÓM XÁC NHẬN 
         if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: 
             buy_score += 1.5; reason_list.append("Đà tăng ngắn hạn")
