@@ -55,6 +55,11 @@ def calculate_indicators(df):
     df['BB_upper'] = df['BB_mid'] + 2 * df['BB_std']
     df['BB_lower'] = df['BB_mid'] - 2 * df['BB_std']
 
+    up_move = df['high'] - df['high'].shift(1)
+    down_move = df['low'].shift(1) - df['low']
+    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+
     typical_price = (df['high'] + df['low'] + df['close']) / 3
     money_flow = typical_price * df['volume']
     positive_flow = money_flow.where(typical_price > typical_price.shift(1), 0).rolling(window=14).sum()
@@ -125,7 +130,10 @@ def calculate_indicators(df):
         if row['MACD'] < row['Signal_Line']: sell_score += 1.0; reason_list.append("MACD Cắt xuống")
         if row['close'] < row['BB_lower']: buy_score += 1.0; reason_list.append("Chạm BB dưới")
         if row['close'] > row['BB_upper']: sell_score += 1.0; reason_list.append("Chạm BB trên")
-
+        if row['ADX'] > 25 and row['+DI'] > row['-DI']:
+            buy_score += 1.0; reason_list.append("Trend tăng mạnh (ADX>25)")
+        if row['ADX'] > 25 and row['-DI'] > row['+DI']:
+            sell_score += 1.0; reason_list.append("Trend giảm mạnh (ADX>25)")
         # --- QUY ĐỔI RA PHẦN TRĂM VÀ LƯU LẠI ---
         buy_pct = (buy_score / max_score) * 100
         sell_pct = (sell_score / max_score) * 100
