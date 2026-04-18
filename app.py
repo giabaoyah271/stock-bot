@@ -128,7 +128,7 @@ def calculate_indicators(df):
         # Thực hiện logic thay đổi màu sắc của bạn
         if buy_score >= 50:
             current_trend = 1   # Đổi sang XANH
-        elif sell_score >= 30:
+        elif sell_score >= 20:
             current_trend = -1  # Đổi sang ĐỎ
         # Trường hợp còn lại: giữ nguyên current_trend (không đổi màu)
             
