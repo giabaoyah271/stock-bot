@@ -73,6 +73,20 @@ def calculate_indicators(df):
     true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     df['ATR'] = true_range.rolling(window=14).mean()
 
+    plus_dm = df['high'].diff()
+    minus_dm = df['low'].diff() * -1
+    # Chỉ giữ lại giá trị dương, nếu âm thì bằng 0
+    plus_dm[plus_dm < 0] = 0
+    minus_dm[minus_dm < 0] = 0
+    # Làm mượt (Wilder's Smoothing tương đương rolling sum)
+    tr_sum = true_range.rolling(window=14).sum()
+    plus_di = 100 * (plus_dm.rolling(window=14).sum() / tr_sum)
+    minus_di = 100 * (minus_dm.rolling(window=14).sum() / tr_sum)
+    dx = 100 * (np.abs(plus_di - minus_di) / (plus_di + minus_di + 1e-9))
+    df['ADX'] = dx.rolling(window=14).mean()
+    df['Plus_DI'] = plus_di
+    df['Minus_DI'] = minus_di
+        
     # --- B. LOGIC CHẤM ĐIỂM TRỌNG SỐ & QUẢN TRỊ RỦI RO ---
     trends = []
     buy_pcts = []     # THÊM MỚI
@@ -94,7 +108,7 @@ def calculate_indicators(df):
             
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 12.0 # Tổng điểm tuyệt đối
+        max_score = 14.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
         # 1. NHÓM CỐT LÕI (Trọng số cao: 2.0 điểm)
@@ -110,6 +124,17 @@ def calculate_indicators(df):
             buy_score += 2.0; reason_list.append("Dòng tiền dương")
         if row['MFI'] < 40: 
             sell_score += 2.0; reason_list.append("Dòng tiền yếu")
+
+        # Nếu ADX > 25: Xu hướng mạnh, tin tưởng vào các chỉ báo hướng
+        if row['ADX'] > 25:
+            if row['Plus_DI'] > row['Minus_DI']:
+                buy_score += 2.0; reason_list.append("Trend tăng mạnh (ADX)")
+            elif row['Minus_DI'] > row['Plus_DI']:
+                sell_score += 2.0; reason_list.append("Trend giảm mạnh (ADX)")
+        # Nếu ADX < 20: Thị trường đi ngang, trừ điểm để cảnh báo rủi ro tín hiệu giả
+        elif row['ADX'] < 20:
+            reason_list.append("Sideways (ADX thấp)")
+        
         # 2. NHÓM XÁC NHẬN (Trọng số trung bình: 1.5 điểm)
         if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: 
             buy_score += 1.5; reason_list.append("Đà tăng ngắn hạn")
