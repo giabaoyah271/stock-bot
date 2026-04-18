@@ -54,6 +54,12 @@ def calculate_indicators(df):
     df['BB_std'] = df['close'].rolling(window=20).std()
     df['BB_upper'] = df['BB_mid'] + 2 * df['BB_std']
     df['BB_lower'] = df['BB_mid'] - 2 * df['BB_std']
+
+    typical_price = (df['high'] + df['low'] + df['close']) / 3
+    money_flow = typical_price * df['volume']
+    positive_flow = money_flow.where(typical_price > typical_price.shift(1), 0).rolling(window=14).sum()
+    negative_flow = money_flow.where(typical_price < typical_price.shift(1), 0).rolling(window=14).sum()
+    df['MFI'] = 100 - (100 / (1 + positive_flow / (negative_flow + 1e-9)))
     
     df['Tenkan_Sen'] = (df['high'].rolling(window=9).max() + df['low'].rolling(window=9).min()) / 2
     df['Kijun_Sen'] = (df['high'].rolling(window=26).max() + df['low'].rolling(window=26).min()) / 2
@@ -83,7 +89,7 @@ def calculate_indicators(df):
             
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 10.0 # Tổng điểm tuyệt đối
+        max_score = 12.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
         # 1. NHÓM CỐT LÕI (Trọng số cao: 2.0 điểm)
@@ -94,7 +100,10 @@ def calculate_indicators(df):
             
         if row['volume'] > 1.5 * row['Vol_Avg']: 
             buy_score += 2.0; reason_list.append("Vol đột biến")
-        
+        if row['MFI'] > 50: 
+            buy_score += 2.0; reason_list.append("Dòng tiền dương")
+        if row['MFI'] < 40: 
+            sell_score += 2.0; reason_list.append("Dòng tiền yếu")
         # 2. NHÓM XÁC NHẬN (Trọng số trung bình: 1.5 điểm)
         if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: 
             buy_score += 1.5; reason_list.append("Đà tăng ngắn hạn")
