@@ -187,7 +187,7 @@ def calculate_indicators(df):
                 continue
                 
         # --- BƯỚC 2: XỬ LÝ TÍN HIỆU KỸ THUẬT ---
-        if buy_pct >= 55:
+        if buy_pct >= 60:
             if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
                 entry_price = row['close'] # Ghi nhận giá lúc báo Mua
                 trailing_stop = row['close'] - (2 * row['ATR']) # Thiết lập giá cắt lỗ động ban đầu
