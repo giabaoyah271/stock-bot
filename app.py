@@ -188,19 +188,35 @@ if mode == "Phân tích chi tiết mã":
         profit = ((last_price / entry_price) - 1) * 100
         days_held = len(df.loc[entry_date:])
 
-        col_info1, col_info2 = st.columns(2)
-        with col_info1:
-            st.markdown(f"<h3 style='color:blue;'>GIÁ TẠI ĐIỂM {('MUA' if is_green else 'BÁN')}: {entry_price:.2f}</h3>", unsafe_allow_html=True)
-            st.markdown(f"<h3 style='color:black;'>GIÁ HIỆN TẠI: {last_price:.2f}</h3>", unsafe_allow_html=True)
-        with col_info2:
-            st.write(f"**Ngày Tín Hiệu:** {entry_date.strftime('%d/%m/%Y')}")
-            color_pct = "green" if profit >= 0 else "red"
-            st.markdown(f"**BIẾN ĐỘNG: <span style='color:{color_pct}; font-size:20px;'>{profit:.2f}%</span> | Đã qua {days_held} phiên**", unsafe_allow_html=True)
+        # Tính toán các mức giá (Bạn có thể tự chỉnh sửa công thức % này theo ý muốn)
+        stop_loss = entry_price * 0.98 if is_green else entry_price * 1.02 
+        target_1 = entry_price * 1.1
+        target_2 = entry_price * 1.3
+        target_3 = entry_price * 1.44
+        
+        action_text = "MUA" if is_green else "BÁN"
+        color_action = "blue" if is_green else "red"
+        color_profit = "blue" if profit >= 0 else "red"
+        status_text = "Đã Lãi" if profit >= 0 else "Đang Lỗ"
+        rec_text = "Vùng Xanh, Tiếp tục nắm giữ" if is_green else "Vùng Đỏ, Đứng ngoài quan sát"
+        rec_color = "green" if is_green else "red"
 
-        if is_green:
-            st.success(f"Khuyến nghị: Đang ở Vùng Xanh (MUA) - Tiếp tục nắm giữ")
-        else:
-            st.error(f"Khuyến nghị: Đang ở Vùng Đỏ (BÁN) - Đứng ngoài quan sát")
+        # Hiển thị layout giống hình mẫu
+        st.markdown(f"""
+        <div style='text-align: center; font-family: Arial, sans-serif; line-height: 1.4;'>
+            <h3 style='color: {color_action}; display: inline-block; margin-right: 20px;'>{action_text} QUANH GIÁ: {entry_price:.1f}</h3>
+            <h3 style='color: purple; display: inline-block;'>Ngày {action_text}: {entry_date.strftime('%d/%m/%Y')}</h3>
+            <br>
+            <h3 style='color: {color_profit}; margin-top: 0;'>(KẾT QUẢ: {status_text} {profit:.1f}% | Đã nắm giữ +{days_held} phiên)</h3>
+            <h4 style='color: red; display: inline-block; margin-right: 15px;'>Giá Chốt Lãi/Cắt Lỗ: {stop_loss:.1f}</h4>
+            <h4 style='color: magenta; display: inline-block;'>Mục tiêu dự kiến: {target_1:.1f} | {target_2:.1f} | {target_3:.1f}</h4>
+            <h2 style='color: purple; margin-top: 5px;'>GIÁ HIỆN TẠI: {last_price:.2f}</h2>
+            <h3 style='color: {rec_color}; margin-top: -10px;'>Khuyến nghị: {rec_text}</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Bổ sung hiển thị Đồng thuận & Lý do
+        st.info(f"📊 **Đồng thuận hệ thống:** MUA ({last_row['Buy_Pct']:.0f}%) - BÁN ({last_row['Sell_Pct']:.0f}%)\n\n📌 **Lý do tín hiệu:** {last_row['Reason']}")
 
         # --- VẼ BIỂU ĐỒ ---
         fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
