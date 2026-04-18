@@ -216,48 +216,48 @@ if mode == "Phân tích chi tiết mã":
 else:
     st.header(f"🔍 Trình quét tín hiệu (Khung: {timeframe})")
     if st.button("Bắt đầu phân tích"):
-    results = []
-    bar = st.progress(0)
-    for i, s in enumerate(TOP_MARKET):
-        data = get_data(s, timeframe)
-        if not data.empty:
-            last_s = data.iloc[-1]
-            status = "🟢 MUA" if last_s['Trend'] == 1 else "🔴 BÁN"
+        results = []
+        bar = st.progress(0)
+        for i, s in enumerate(TOP_MARKET):
+                data = get_data(s, timeframe)
+                if not data.empty:
+                    last_s = data.iloc[-1]
+                    status = "🟢 MUA" if last_s['Trend'] == 1 else "🔴 BÁN"
             
-            # Lấy giá tín hiệu
-            change = data[data['Trend'] != data['Trend'].shift(1)]
-            entry_price = data.loc[change.index[-1], 'close'] if not change.empty else data.index[0]
-            profit = ((last_s['close'] / entry_price) - 1) * 100
+                    # Lấy giá tín hiệu
+                    change = data[data['Trend'] != data['Trend'].shift(1)]
+                    entry_price = data.loc[change.index[-1], 'close'] if not change.empty else data.index[0]
+                    profit = ((last_s['close'] / entry_price) - 1) * 100
             
-            results.append({
-                "Mã": s, 
-                "Trạng thái": status, 
-                "Đồng thuận Mua": last_s['Buy_Consensus'],
-                "Đồng thuận Bán": last_s['Sell_Consensus'],
-                "Lý do kỹ thuật": last_s['Reasons'],
-                "Giá Hiện Tại": last_s['close'],
-                "Lời/Lỗ (%)": profit
-            })
+                    results.append({
+                        "Mã": s, 
+                        "Trạng thái": status, 
+                        "Đồng thuận Mua": last_s['Buy_Consensus'],
+                        "Đồng thuận Bán": last_s['Sell_Consensus'],
+                        "Lý do kỹ thuật": last_s['Reasons'],
+                        "Giá Hiện Tại": last_s['close'],
+                        "Lời/Lỗ (%)": profit
+                    })
         
-        bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-        time.sleep(1.5) # Giảm sleep nếu API ổn định để quét nhanh hơn
+                bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
+                time.sleep(1.5) # Giảm sleep nếu API ổn định để quét nhanh hơn
         
-    df_res = pd.DataFrame(results)
-    if not df_res.empty:
-        df_res.insert(0, "STT", range(1, len(df_res) + 1))
+        df_res = pd.DataFrame(results)
+        if not df_res.empty:
+                df_res.insert(0, "STT", range(1, len(df_res) + 1))
         
-        # Cấu hình hiển thị bảng chuyên nghiệp
-        st.dataframe(
-            df_res,
-            column_config={
-                "STT": st.column_config.NumberColumn("STT", width="small"),
-                "Đồng thuận Mua": st.column_config.ProgressColumn("Đồng thuận Mua", format="%d%%", min_value=0, max_value=100),
-                "Đồng thuận Bán": st.column_config.ProgressColumn("Đồng thuận Bán", format="%d%%", min_value=0, max_value=100),
-                "Lý do kỹ thuật": st.column_config.TextColumn("Lý do hệ thống", width="large"),
-                "Lời/Lỗ (%)": st.column_config.NumberColumn("Lời/Lỗ (%)", format="%.2f%%"),
-            },
-            use_container_width=True,
-            hide_index=True
-        )
+                # Cấu hình hiển thị bảng chuyên nghiệp
+                st.dataframe(
+                    df_res,
+                    column_config={
+                        "STT": st.column_config.NumberColumn("STT", width="small"),
+                        "Đồng thuận Mua": st.column_config.ProgressColumn("Đồng thuận Mua", format="%d%%", min_value=0, max_value=100),
+                        "Đồng thuận Bán": st.column_config.ProgressColumn("Đồng thuận Bán", format="%d%%", min_value=0, max_value=100),
+                        "Lý do kỹ thuật": st.column_config.TextColumn("Lý do hệ thống", width="large"),
+                        "Lời/Lỗ (%)": st.column_config.NumberColumn("Lời/Lỗ (%)", format="%.2f%%"),
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
         else:
             st.warning("Không có dữ liệu nào được tìm thấy.")
