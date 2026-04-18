@@ -108,7 +108,7 @@ def calculate_indicators(df):
             
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 12.5 # Tổng điểm tuyệt đối
+        max_score = 11.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
        # 1. NHÓM CỐT LÕI - XU HƯỚNG DÀI HẠN (Trọng số 3.0)
@@ -146,23 +146,6 @@ def calculate_indicators(df):
                 reason_list.append("Xác nhận Trend GIẢM mạnh (ADX)")
         elif row['ADX'] < 20:
             reason_list.append("Thị trường Sideway (ADX thấp)")
-        
-        # 5. NHÓM BỔ TRỢ & KHỐI LƯỢNG
-        if vol_ratio >= 1.5:
-            if price_change > 0.02: # Giá tăng > 2% + Vol lớn
-                buy_score += 1.5
-                reason_list.append("Xác nhận Breakout (Vol đạt chuẩn)")
-            elif price_change < -0.02: # Giá giảm > 2% + Vol lớn
-                sell_score += 2.0 
-                reason_list.append("Dấu hiệu bán tháo (Vol cực lớn)")
-            elif abs(price_change) < 0.005: # Quy tắc 4: Nỗ lực nhưng không kết quả
-                sell_score += 0.5
-                reason_list.append("Nỗ lực không kết quả (Nghi vấn phân phối)")
-        if price_change > 0.03 and vol_ratio < 0.8:
-            buy_score -= 1.0 # Trừ điểm tin cậy
-            reason_list.append("Cảnh báo Breakout giả (Vol thấp)")
-        if vol_ratio > 2.5 and abs(price_change) < 0.01:
-            reason_list.append("⚠️ Dấu chân Tay to (Bất thường)")
             
         if row['RSI'] < 30: buy_score += 1.0; reason_list.append("RSI Quá bán")
         if row['RSI'] > 70: sell_score += 1.0; reason_list.append("RSI Quá mua")
