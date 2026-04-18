@@ -81,7 +81,7 @@ def calculate_indicators(df):
             reasons.append("Chưa đủ dữ liệu")
             continue
             
-       buy_score = 0.0
+        buy_score = 0.0
         sell_score = 0.0
         max_score = 10.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
