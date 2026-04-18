@@ -39,6 +39,8 @@ def calculate_indicators(df):
     df['SMA20'] = df['close'].rolling(window=20).mean()
     df['SMA50'] = df['close'].rolling(window=50).mean()
     df['SMA200'] = df['close'].rolling(window=200).mean()
+    df['Vol_Avg'] = df['volume'].rolling(window=20).mean()
+    df['Vol_Ratio'] = df['volume'] / (df['Vol_Avg'] + 1e-9)
     
     delta = df['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -54,6 +56,29 @@ def calculate_indicators(df):
     df['BB_std'] = df['close'].rolling(window=20).std()
     df['BB_upper'] = df['BB_mid'] + 2 * df['BB_std']
     df['BB_lower'] = df['BB_mid'] - 2 * df['BB_std']
+
+    high_low = df['high'] - df['low']
+    high_close = np.abs(df['high'] - df['close'].shift())
+    low_close = np.abs(df['low'] - df['close'].shift())
+    ranges = pd.concat([high_low, high_close, low_close], axis=1)
+    df['ATR'] = ranges.max(axis=1).rolling(window=14).mean()
+
+    typical_price = (df['high'] + df['low'] + df['close']) / 3
+    money_flow = typical_price * df['volume']
+    positive_flow = money_flow.where(typical_price > typical_price.shift(1), 0).rolling(window=14).sum()
+    negative_flow = money_flow.where(typical_price < typical_price.shift(1), 0).rolling(window=14).sum()
+    df['MFI'] = 100 - (100 / (1 + positive_flow / (negative_flow + 1e-9)))
+
+    up_move = df['high'].diff()
+    down_move = df['low'].diff().multiply(-1)
+    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
+    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
+    
+    tr_smooth = ranges.max(axis=1).ewm(alpha=1/14, adjust=False).mean()
+    plus_di = 100 * (pd.Series(plus_dm).ewm(alpha=1/14, adjust=False).mean() / tr_smooth)
+    minus_di = 100 * (pd.Series(minus_dm).ewm(alpha=1/14, adjust=False).mean() / tr_smooth)
+    dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di + 1e-9)
+    df['ADX'] = dx.ewm(alpha=1/14, adjust=False).mean().values
     
     df['Tenkan_Sen'] = (df['high'].rolling(window=9).max() + df['low'].rolling(window=9).min()) / 2
     df['Kijun_Sen'] = (df['high'].rolling(window=26).max() + df['low'].rolling(window=26).min()) / 2
@@ -83,19 +108,22 @@ def calculate_indicators(df):
             
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 10.0 # Tổng điểm tuyệt đối
+        max_score = 12.5 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
-        # 1. NHÓM CỐT LÕI (Trọng số cao: 2.0 điểm)
+       # 1. NHÓM CỐT LÕI - XU HƯỚNG DÀI HẠN (Trọng số 3.0)
         if row['close'] > row['SMA200']: 
-            buy_score += 2.0; reason_list.append("Giá > MA200")
+            buy_score += 2.5; reason_list.append("Giá > MA200")
         else: 
-            sell_score += 2.0; reason_list.append("Giá < MA200")
-            
-        if row['volume'] > 1.5 * row['Vol_Avg']: 
-            buy_score += 2.0; reason_list.append("Vol đột biến")
-        
-        # 2. NHÓM XÁC NHẬN (Trọng số trung bình: 1.5 điểm)
+            sell_score += 2.5; reason_list.append("Giá < MA200")
+
+        # 2. NHÓM DÒNG TIỀN - MFI (Trọng số 2.0)
+        if row['MFI'] > 55: 
+            buy_score += 2.0; reason_list.append("Dòng tiền vào (MFI)")
+        elif row['MFI'] < 45: 
+            sell_score += 2.0; reason_list.append("Dòng tiền yếu (MFI)")
+
+        # 3. NHÓM XÁC NHẬN XU HƯỚNG (Trọng số 1.5)
         if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: 
             buy_score += 1.5; reason_list.append("Đà tăng ngắn hạn")
         if row['close'] < row['SMA20']: 
@@ -106,15 +134,53 @@ def calculate_indicators(df):
         if row['close'] > cloud_top and row['Tenkan_Sen'] > row['Kijun_Sen']: 
             buy_score += 1.5; reason_list.append("Vượt mây Ichi")
         if row['close'] < cloud_bottom or row['Tenkan_Sen'] < row['Kijun_Sen']: 
-            sell_score += 1.5; reason_list.append("Thủng mây/Cắt xuống Ichi")
+            sell_score += 1.5; reason_list.append("Dưới mây/Cắt xuống Ichi")
+
+        # 4. NHÓM SỨC MẠNH XU HƯỚNG - ADX (Trọng số 1.0)
+        if row['ADX'] > 25:
+            if row['plus_di'] > row['minus_di']:
+                # Xu hướng tăng mạnh
+                buy_score += 1.0
+                reason_list.append("Xác nhận Trend TĂNG mạnh (ADX)")
+            elif row['minus_di'] > row['plus_di']:
+                # Xu hướng giảm mạnh
+                sell_score += 1.0
+                reason_list.append("Xác nhận Trend GIẢM mạnh (ADX)")
+        elif row['ADX'] < 20:
+            # Thị trường không xu hướng (Sideway)
+            reason_list.append("Thị trường Sideway (ADX thấp)")
         
-        # 3. NHÓM BỔ TRỢ & TÌM ĐIỂM VÀO (Trọng số thấp: 1.0 điểm)
+        # 5. NHÓM BỔ TRỢ & KHỐI LƯỢNG (Trọng số 1.0)
+        if vol_ratio >= 1.5:
+            if price_change > 0.02: # Giá tăng > 2% + Vol lớn
+                buy_score += 1.5
+                reason_list.append("Xác nhận Breakout (Vol đạt chuẩn)")
+            elif price_change < -0.02: # Giá giảm > 2% + Vol lớn
+                sell_score += 2.0 
+                reason_list.append("Dấu hiệu bán tháo (Vol cực lớn)")
+            elif abs(price_change) < 0.005: # Quy tắc 4: Nỗ lực nhưng không kết quả
+                sell_score += 0.5
+                reason_list.append("Nỗ lực không kết quả (Nghi vấn phân phối)")
+
+        # Quy tắc 2: Cảnh báo Phá vỡ giả (Fakeout)
+        # Nếu giá tăng mạnh nhưng Vol thấp hơn trung bình
+        if price_change > 0.03 and vol_ratio < 0.8:
+            buy_score -= 1.0 # Trừ điểm tin cậy
+            reason_list.append("Cảnh báo Breakout giả (Vol thấp)")
+
+        # Quy tắc 4: Dấu chân cá mập (Vol đột biến nhưng giá chưa chạy)
+        if vol_ratio > 2.5 and abs(price_change) < 0.01:
+            reason_list.append("⚠️ Dấu chân Tay to (Bất thường)")
+            
         if row['RSI'] < 30: buy_score += 1.0; reason_list.append("RSI Quá bán")
         if row['RSI'] > 70: sell_score += 1.0; reason_list.append("RSI Quá mua")
+        
         if row['MACD'] > row['Signal_Line']: buy_score += 1.0; reason_list.append("MACD Cắt lên")
         if row['MACD'] < row['Signal_Line']: sell_score += 1.0; reason_list.append("MACD Cắt xuống")
-        if row['close'] < row['BB_lower']: buy_score += 1.0; reason_list.append("Chạm BB dưới")
-        if row['close'] > row['BB_upper']: sell_score += 1.0; reason_list.append("Chạm BB trên")
+
+        # 6. NHÓM ĐẢO CHIỀU - BOLLINGER BANDS (Trọng số 0.5)
+        if row['close'] < row['BB_lower']: buy_score += 0.5; reason_list.append("Chạm BB dưới")
+        if row['close'] > row['BB_upper']: sell_score += 0.5; reason_list.append("Chạm BB trên")
         
         # --- QUY ĐỔI RA PHẦN TRĂM VÀ LƯU LẠI ---
         buy_pct = (buy_score / max_score) * 100
