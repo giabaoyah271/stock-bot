@@ -60,23 +60,14 @@ def calculate_indicators(df):
     positive_flow = money_flow.where(typical_price > typical_price.shift(1), 0).rolling(window=14).sum()
     negative_flow = money_flow.where(typical_price < typical_price.shift(1), 0).rolling(window=14).sum()
     df['MFI'] = 100 - (100 / (1 + positive_flow / (negative_flow + 1e-9)))
-    
-    up_move = df['high'].diff()
-    down_move = df['low'].diff().multiply(-1)
-    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
-    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
-    tr_smooth = ranges.max(axis=1).ewm(alpha=1/14, adjust=False).mean()
-    plus_di = 100 * (pd.Series(plus_dm).ewm(alpha=1/14, adjust=False).mean() / tr_smooth)
-    minus_di = 100 * (pd.Series(minus_dm).ewm(alpha=1/14, adjust=False).mean() / tr_smooth)
-    dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di + 1e-9)
-    df['ADX'] = dx.ewm(alpha=1/14, adjust=False).mean().values
-        
+            
     df['Tenkan_Sen'] = (df['high'].rolling(window=9).max() + df['low'].rolling(window=9).min()) / 2
     df['Kijun_Sen'] = (df['high'].rolling(window=26).max() + df['low'].rolling(window=26).min()) / 2
     df['Senkou_Span_A'] = ((df['Tenkan_Sen'] + df['Kijun_Sen']) / 2).shift(26)
     df['Senkou_Span_B'] = ((df['high'].rolling(window=52).max() + df['low'].rolling(window=52).min()) / 2).shift(26)
     
     df['Vol_Avg'] = df['volume'].rolling(window=20).mean()
+    df['Vol_Ratio'] = df['volume'] / (df['Vol_Avg'] + 1e-9)
 
     # --- B. LOGIC CHẤM ĐIỂM TRỌNG SỐ & QUẢN TRỊ RỦI RO ---
     trends = []
@@ -99,7 +90,7 @@ def calculate_indicators(df):
             
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 13.0 # Tổng điểm tuyệt đối
+        max_score = 13.5 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
         # 1. NHÓM CỐT LÕI (Trọng số cao: 2.0 điểm)
@@ -108,8 +99,23 @@ def calculate_indicators(df):
         else: 
             sell_score += 2.0; reason_list.append("Giá < MA200")
             
-        if row['volume'] > 1.5 * row['Vol_Avg']: 
-            buy_score += 2.0; reason_list.append("Vol đột biến")
+        if vol_ratio >= 1.5:
+            if price_change > 0.02: # Giá tăng > 2% + Vol lớn
+                buy_score += 1.5
+                reason_list.append("Xác nhận Breakout (Vol đạt chuẩn)")
+            elif price_change < -0.02: # Giá giảm > 2% + Vol lớn
+                sell_score += 2.0 
+                reason_list.append("Dấu hiệu bán tháo (Vol cực lớn)")
+            elif abs(price_change) < 0.005: # Quy tắc 4: Nỗ lực nhưng không kết quả
+                sell_score += 0.5
+                reason_list.append("Nỗ lực không kết quả (Nghi vấn phân phối)")
+
+        # Quy tắc 2: Cảnh báo Phá vỡ giả (Fakeout)
+        # Nếu giá tăng mạnh nhưng Vol thấp hơn trung bình
+        if price_change > 0.03 and vol_ratio < 0.8:
+            buy_score -= 1.0 # Trừ điểm tin cậy
+            reason_list.append("Cảnh báo Breakout giả (Vol thấp)")
+                
         if row['MFI'] > 50: 
             buy_score += 2.0; reason_list.append("Dòng tiền dương")
         if row['MFI'] < 40: 
@@ -134,18 +140,7 @@ def calculate_indicators(df):
         if row['MACD'] < row['Signal_Line']: sell_score += 1.0; reason_list.append("MACD Cắt xuống")
         if row['close'] < row['BB_lower']: buy_score += 1.0; reason_list.append("Chạm BB dưới")
         if row['close'] > row['BB_upper']: sell_score += 1.0; reason_list.append("Chạm BB trên")
-        if row['ADX'] > 25:
-            if row['plus_di'] > row['minus_di']:
-                # Xu hướng tăng mạnh
-                buy_score += 1.0
-                reason_list.append("Xác nhận Trend TĂNG mạnh (ADX)")
-            elif row['minus_di'] > row['plus_di']:
-                # Xu hướng giảm mạnh
-                sell_score += 1.0
-                reason_list.append("Xác nhận Trend GIẢM mạnh (ADX)")
-        elif row['ADX'] < 20:
-            # Thị trường không xu hướng (Sideway)
-            reason_list.append("Thị trường Sideway (ADX thấp)")
+
         # --- QUY ĐỔI RA PHẦN TRĂM VÀ LƯU LẠI ---
         buy_pct = (buy_score / max_score) * 100
         sell_pct = (sell_score / max_score) * 100
