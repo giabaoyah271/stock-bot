@@ -67,7 +67,6 @@ def calculate_indicators(df):
     df['Senkou_Span_B'] = ((df['high'].rolling(window=52).max() + df['low'].rolling(window=52).min()) / 2).shift(26)
     
     df['Vol_Avg'] = df['volume'].rolling(window=20).mean()
-    df['Vol_Ratio'] = df['volume'] / (df['Vol_Avg'] + 1e-9)
 
     # --- B. LOGIC CHẤM ĐIỂM TRỌNG SỐ & QUẢN TRỊ RỦI RO ---
     trends = []
@@ -99,22 +98,8 @@ def calculate_indicators(df):
         else: 
             sell_score += 2.0; reason_list.append("Giá < MA200")
             
-        if vol_ratio >= 1.5:
-            if price_change > 0.02: # Giá tăng > 2% + Vol lớn
-                buy_score += 1.5
-                reason_list.append("Xác nhận Breakout (Vol đạt chuẩn)")
-            elif price_change < -0.02: # Giá giảm > 2% + Vol lớn
-                sell_score += 2.0 
-                reason_list.append("Dấu hiệu bán tháo (Vol cực lớn)")
-            elif abs(price_change) < 0.005: # Quy tắc 4: Nỗ lực nhưng không kết quả
-                sell_score += 0.5
-                reason_list.append("Nỗ lực không kết quả (Nghi vấn phân phối)")
-
-        # Quy tắc 2: Cảnh báo Phá vỡ giả (Fakeout)
-        # Nếu giá tăng mạnh nhưng Vol thấp hơn trung bình
-        if price_change > 0.03 and vol_ratio < 0.8:
-            buy_score -= 1.0 # Trừ điểm tin cậy
-            reason_list.append("Cảnh báo Breakout giả (Vol thấp)")
+        if row['volume'] > 1.5 * row['Vol_Avg']: 
+            buy_score += 2.0; reason_list.append("Vol đột biến")
                 
         if row['MFI'] > 50: 
             buy_score += 2.0; reason_list.append("Dòng tiền dương")
