@@ -9,7 +9,6 @@ import time
 
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(page_title="Hệ thống Giao dịch Xanh-Đỏ", layout="wide")
-
 TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 
 # --- 2. HÀM LẤY TOP 100 THANH KHOẢN ---
@@ -111,14 +110,19 @@ def calculate_indicators(df):
         max_score = 14.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
-        # 1. NHÓM CỐT LÕI (Trọng số cao: 2.0 điểm)
+        # 1. NHÓM CỐT LÕI 
         if row['close'] > row['SMA200']: 
-            buy_score += 2.0; reason_list.append("Giá > MA200")
+            buy_score += 2.5; reason_list.append("Giá > MA200")
         else: 
-            sell_score += 2.0; reason_list.append("Giá < MA200")
+            sell_score += 2.5; reason_list.append("Giá < MA200")
             
         if row['volume'] > 1.5 * row['Vol_Avg']: 
-            buy_score += 2.0; reason_list.append("Vol đột biến")
+            if row['close'] > row['open']: 
+                buy_score += 2.0; reason_list.append("Cầu mạnh (Vol đột biến)")
+            elif row['close'] < row['open']:
+                sell_score += 2.0; reason_list.append("Bán tháo (Vol đột biến)")
+            else:
+                pass
                 
         if row['MFI'] > 50: 
             buy_score += 2.0; reason_list.append("Dòng tiền dương")
@@ -135,7 +139,7 @@ def calculate_indicators(df):
         elif row['ADX'] < 20:
             reason_list.append("Sideways (ADX thấp)")
         
-        # 2. NHÓM XÁC NHẬN (Trọng số trung bình: 1.5 điểm)
+        # 2. NHÓM XÁC NHẬN 
         if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: 
             buy_score += 1.5; reason_list.append("Đà tăng ngắn hạn")
         if row['close'] < row['SMA20']: 
@@ -148,13 +152,13 @@ def calculate_indicators(df):
         if row['close'] < cloud_bottom or row['Tenkan_Sen'] < row['Kijun_Sen']: 
             sell_score += 1.5; reason_list.append("Thủng mây/Cắt xuống Ichi")
         
-        # 3. NHÓM BỔ TRỢ & TÌM ĐIỂM VÀO (Trọng số thấp: 1.0 điểm)
+        # 3. NHÓM BỔ TRỢ & TÌM ĐIỂM VÀO 
         if row['RSI'] < 30: buy_score += 1.0; reason_list.append("RSI Quá bán")
         if row['RSI'] > 70: sell_score += 1.0; reason_list.append("RSI Quá mua")
         if row['MACD'] > row['Signal_Line']: buy_score += 1.0; reason_list.append("MACD Cắt lên")
         if row['MACD'] < row['Signal_Line']: sell_score += 1.0; reason_list.append("MACD Cắt xuống")
-        if row['close'] < row['BB_lower']: buy_score += 1.0; reason_list.append("Chạm BB dưới")
-        if row['close'] > row['BB_upper']: sell_score += 1.0; reason_list.append("Chạm BB trên")
+        if row['close'] < row['BB_lower']: buy_score += 0.5; reason_list.append("Chạm BB dưới")
+        if row['close'] > row['BB_upper']: sell_score += 0.5; reason_list.append("Chạm BB trên")
 
         # --- QUY ĐỔI RA PHẦN TRĂM VÀ LƯU LẠI ---
         buy_pct = (buy_score / max_score) * 100
@@ -358,7 +362,7 @@ else:
                 })
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(1.4) # Tránh bị API block
+            time.sleep(1.3) # Tránh bị API block
         df_res = pd.DataFrame(results)
         if not df_res.empty:
             # Ép kiểu số để tính toán và định dạng chính xác
