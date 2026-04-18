@@ -61,6 +61,16 @@ def calculate_indicators(df):
     negative_flow = money_flow.where(typical_price < typical_price.shift(1), 0).rolling(window=14).sum()
     df['MFI'] = 100 - (100 / (1 + positive_flow / (negative_flow + 1e-9)))
     
+    up_move = df['high'].diff()
+    down_move = df['low'].diff().multiply(-1)
+    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
+    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
+    tr_smooth = ranges.max(axis=1).ewm(alpha=1/14, adjust=False).mean()
+    plus_di = 100 * (pd.Series(plus_dm).ewm(alpha=1/14, adjust=False).mean() / tr_smooth)
+    minus_di = 100 * (pd.Series(minus_dm).ewm(alpha=1/14, adjust=False).mean() / tr_smooth)
+    dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di + 1e-9)
+    df['ADX'] = dx.ewm(alpha=1/14, adjust=False).mean().values
+        
     df['Tenkan_Sen'] = (df['high'].rolling(window=9).max() + df['low'].rolling(window=9).min()) / 2
     df['Kijun_Sen'] = (df['high'].rolling(window=26).max() + df['low'].rolling(window=26).min()) / 2
     df['Senkou_Span_A'] = ((df['Tenkan_Sen'] + df['Kijun_Sen']) / 2).shift(26)
@@ -124,7 +134,18 @@ def calculate_indicators(df):
         if row['MACD'] < row['Signal_Line']: sell_score += 1.0; reason_list.append("MACD Cắt xuống")
         if row['close'] < row['BB_lower']: buy_score += 1.0; reason_list.append("Chạm BB dưới")
         if row['close'] > row['BB_upper']: sell_score += 1.0; reason_list.append("Chạm BB trên")
-        
+        if row['ADX'] > 25:
+            if row['plus_di'] > row['minus_di']:
+                # Xu hướng tăng mạnh
+                buy_score += 1.0
+                reason_list.append("Xác nhận Trend TĂNG mạnh (ADX)")
+            elif row['minus_di'] > row['plus_di']:
+                # Xu hướng giảm mạnh
+                sell_score += 1.0
+                reason_list.append("Xác nhận Trend GIẢM mạnh (ADX)")
+        elif row['ADX'] < 20:
+            # Thị trường không xu hướng (Sideway)
+            reason_list.append("Thị trường Sideway (ADX thấp)")
         # --- QUY ĐỔI RA PHẦN TRĂM VÀ LƯU LẠI ---
         buy_pct = (buy_score / max_score) * 100
         sell_pct = (sell_score / max_score) * 100
