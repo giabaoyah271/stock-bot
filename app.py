@@ -125,7 +125,7 @@ def calculate_indicators(df):
             if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
                 entry_price = row['close'] # Ghi nhận giá lúc báo Mua
             current_trend = 1
-        elif sell_pct >= 40:
+        elif sell_pct >= 30:
             current_trend = -1
             entry_price = 0.0          # Bán chốt lời/cắt lỗ xong thì xóa vị thế
             
