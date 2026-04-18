@@ -202,20 +202,51 @@ if mode == "Phân tích chi tiết mã":
         rec_color = "green" if is_green else "red"
 
         # Hiển thị layout giống hình mẫu
+        # 1. Tiêu đề Mã và Khuyến nghị chính
+        st.markdown(f"<h1 style='text-align: center; color: #800080; margin-bottom:0px;'>{symbol}</h1>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align: center; font-size: 20px; font-weight: bold; color: {rec_color};'>{rec_text.upper()}</p>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
+
+        # 2. Tạo 3 cột để dàn hàng ngang các thông tin quan trọng
+        col_main1, col_main2, col_main3 = st.columns(3)
+        
+        with col_main1:
+            st.markdown(f"""
+                <div style='background-color: rgba(128, 128, 128, 0.1); padding: 15px; border-radius: 10px; text-align: center;'>
+                    <p style='margin:0; font-weight: bold;'>TÍN HIỆU {action_text}</p>
+                    <h2 style='margin:0; color: {color_action};'>{entry_price:.1f}</h2>
+                    <p style='margin:0; color: gray;'>Ngày: {entry_date.strftime('%d/%m/%Y')}</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_main2:
+            st.markdown(f"""
+                <div style='background-color: rgba(128, 128, 128, 0.1); padding: 15px; border-radius: 10px; text-align: center;'>
+                    <p style='margin:0; font-weight: bold;'>GIÁ HIỆN TẠI</p>
+                    <h2 style='margin:0; color: purple;'>{last_price:.2f}</h2>
+                    <p style='margin:0; color: {color_profit}; font-weight: bold;'>{status_text} {profit:.1f}%</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_main3:
+            st.markdown(f"""
+                <div style='background-color: rgba(128, 128, 128, 0.1); padding: 15px; border-radius: 10px; text-align: center;'>
+                    <p style='margin:0; font-weight: bold;'>QUẢN TRỊ RỦI RO</p>
+                    <h2 style='margin:0; color: #ff4b4b;'>{stop_loss:.1f}</h2>
+                    <p style='margin:0; color: gray;'>Cắt lỗ/Chốt lãi</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # 3. Mục tiêu dự kiến dàn hàng ngang bên dưới
+        st.write("") # Tạo khoảng cách nhỏ
         st.markdown(f"""
-        <div style='text-align: center; font-family: Arial, sans-serif; line-height: 1.4;'>
-            <h3 style='color: {color_action}; display: inline-block; margin-right: 20px;'>{action_text} QUANH GIÁ: {entry_price:.1f}</h3>
-            <h3 style='color: purple; display: inline-block;'>Ngày {action_text}: {entry_date.strftime('%d/%m/%Y')}</h3>
-            <br>
-            <h3 style='color: {color_profit}; margin-top: 0;'>(KẾT QUẢ: {status_text} {profit:.1f}% | Đã nắm giữ +{days_held} phiên)</h3>
-            <h4 style='color: red; display: inline-block; margin-right: 15px;'>Giá Chốt Lãi/Cắt Lỗ: {stop_loss:.1f}</h4>
-            <h4 style='color: magenta; display: inline-block;'>Mục tiêu dự kiến: {target_1:.1f} | {target_2:.1f} | {target_3:.1f}</h4>
-            <h2 style='color: purple; margin-top: 5px;'>GIÁ HIỆN TẠI: {last_price:.2f}</h2>
-            <h3 style='color: {rec_color}; margin-top: -10px;'>Khuyến nghị: {rec_text}</h3>
-        </div>
+            <div style='background-color: rgba(255, 0, 255, 0.05); padding: 10px; border-left: 5px solid magenta; border-radius: 5px;'>
+                <span style='font-weight: bold; color: magenta;'>🎯 MỤC TIÊU DỰ KIẾN:</span> 
+                <span style='font-size: 18px; margin-left: 20px;'><b>{target_1:.1f}</b> (T1)  —  <b>{target_2:.1f}</b> (T2)  —  <b>{target_3:.1f}</b> (T3)</span>
+            </div>
         """, unsafe_allow_html=True)
         
-        # Bổ sung hiển thị Đồng thuận & Lý do
+        # 4. Giữ nguyên phần info Đồng thuận & Lý do phía dưới cùng
         st.info(f"📊 **Đồng thuận hệ thống:** MUA ({last_row['Buy_Pct']:.0f}%) - BÁN ({last_row['Sell_Pct']:.0f}%)\n\n📌 **Lý do tín hiệu:** {last_row['Reason']}")
 
         # --- VẼ BIỂU ĐỒ ---
