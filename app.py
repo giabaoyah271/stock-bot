@@ -36,104 +36,101 @@ def calculate_indicators(df):
         return df
     
     # --- A. TÍNH TOÁN CÁC CHỈ BÁO ---
-    # 1. Đường trung bình (MA)
     df['SMA20'] = df['close'].rolling(window=20).mean()
     df['SMA50'] = df['close'].rolling(window=50).mean()
     df['SMA200'] = df['close'].rolling(window=200).mean()
     
-    # 2. RSI
     delta = df['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     df['RSI'] = 100 - (100 / (1 + gain / (loss + 1e-9)))
     
-    # 3. MACD
     exp1 = df['close'].ewm(span=12, adjust=False).mean()
     exp2 = df['close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = exp1 - exp2
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
     
-    # 4. Bollinger Bands
     df['BB_mid'] = df['SMA20']
     df['BB_std'] = df['close'].rolling(window=20).std()
     df['BB_upper'] = df['BB_mid'] + 2 * df['BB_std']
     df['BB_lower'] = df['BB_mid'] - 2 * df['BB_std']
     
-    # 5. Ichimoku (Cơ bản)
     df['Tenkan_Sen'] = (df['high'].rolling(window=9).max() + df['low'].rolling(window=9).min()) / 2
     df['Kijun_Sen'] = (df['high'].rolling(window=26).max() + df['low'].rolling(window=26).min()) / 2
-    # Tính Senkou Span A và B (Mây)
     df['Senkou_Span_A'] = ((df['Tenkan_Sen'] + df['Kijun_Sen']) / 2).shift(26)
     df['Senkou_Span_B'] = ((df['high'].rolling(window=52).max() + df['low'].rolling(window=52).min()) / 2).shift(26)
     
-    # 6. Khối lượng trung bình
     df['Vol_Avg'] = df['volume'].rolling(window=20).mean()
 
-    # --- B. LOGIC XÁC ĐỊNH TÍN HIỆU (XANH/ĐỎ) ---
+    # --- B. LOGIC CHẤM ĐIỂM TRỌNG SỐ & QUẢN TRỊ RỦI RO ---
     trends = []
-    current_trend = -1  # Mặc định ban đầu là Đỏ (Bán)
+    current_trend = -1  # Mặc định là Đỏ (Bán)
+    entry_price = 0.0   # Biến lưu giá vốn để tính cắt lỗ
     
     for i in range(len(df)):
         row = df.iloc[i]
         
-        # Bỏ qua các dòng đầu chưa đủ dữ liệu tính toán
-        if pd.isna(row['SMA200']) or pd.isna(row['Vol_Avg']):
+        # Bỏ qua giai đoạn đầu chưa đủ dữ liệu vẽ mây Ichimoku và MA200
+        if pd.isna(row['SMA200']) or pd.isna(row['Senkou_Span_B']):
             trends.append(-1)
             continue
             
-        buy_points = 0
-        sell_points = 0
-        total_criteria = 7 # Tổng số 6 tiêu chí chấm điểm
+        buy_score = 0.0
+        sell_score = 0.0
+        max_score = 10.0 # Tổng điểm tuyệt đối
         
-        # 1. Tiêu chí MA: Giá > SMA20 và SMA20 > SMA50
-        if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: buy_points += 1
-        if row['close'] < row['SMA20']: sell_points += 1
+        # 1. NHÓM CỐT LÕI (Trọng số cao: 2.0 điểm)
+        # - MA200: Xác định xu hướng vĩ mô
+        if row['close'] > row['SMA200']: buy_score += 2.0
+        else: sell_score += 2.0
+        # - Volume: Dòng tiền lớn
+        if row['volume'] > 1.5 * row['Vol_Avg']: buy_score += 2.0
         
-        # 2. Tiêu chí Xu hướng lớn: Giá > SMA200
-        if row['close'] > row['SMA200']: buy_points += 1
-        else: sell_points += 1
+        # 2. NHÓM XÁC NHẬN (Trọng số trung bình: 1.5 điểm)
+        # - Trung bình động ngắn hạn (MA20/50)
+        if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: buy_score += 1.5
+        if row['close'] < row['SMA20']: sell_score += 1.5
+        # - Ichimoku (Giá so với Mây & Tenkan/Kijun)
+        cloud_top = max(row['Senkou_Span_A'], row['Senkou_Span_B'])
+        cloud_bottom = min(row['Senkou_Span_A'], row['Senkou_Span_B'])
+        if row['close'] > cloud_top and row['Tenkan_Sen'] > row['Kijun_Sen']: buy_score += 1.5
+        if row['close'] < cloud_bottom or row['Tenkan_Sen'] < row['Kijun_Sen']: sell_score += 1.5
         
-        # 3. Tiêu chí RSI: < 30 (Mua) hoặc > 70 (Bán)
-        if row['RSI'] < 30: buy_points += 1
-        if row['RSI'] > 70: sell_points += 1
+        # 3. NHÓM BỔ TRỢ & TÌM ĐIỂM VÀO (Trọng số thấp: 1.0 điểm)
+        # - RSI
+        if row['RSI'] < 30: buy_score += 1.0
+        if row['RSI'] > 70: sell_score += 1.0
+        # - MACD
+        if row['MACD'] > row['Signal_Line']: buy_score += 1.0
+        if row['MACD'] < row['Signal_Line']: sell_score += 1.0
+        # - Bollinger Bands
+        if row['close'] < row['BB_lower']: buy_score += 1.0
+        if row['close'] > row['BB_upper']: sell_score += 1.0
         
-        # 4. Tiêu chí MACD: MACD cắt lên Signal
-        if row['MACD'] > row['Signal_Line']: buy_points += 1
-        if row['MACD'] < row['Signal_Line']: sell_points += 1
+        # --- QUY ĐỔI RA PHẦN TRĂM ---
+        buy_pct = (buy_score / max_score) * 100
+        sell_pct = (sell_score / max_score) * 100
         
-        # 5. Tiêu chí Bollinger: Chạm dải dưới (Mua) hoặc dải trên (Bán)
-        if row['close'] < row['BB_lower']: buy_points += 1
-        if row['close'] > row['BB_upper']: sell_points += 1
-        
-        # 6. Tiêu chí Volume: Breakout với Vol > 1.5 lần trung bình
-        if row['volume'] > 1.5 * row['Vol_Avg']: buy_points += 1
-
-        # 7. Tiêu chí Ichimoku
-        # Xác định vị trí Mây (Cloud)
-        cloud_top = row[['Senkou_Span_A', 'Senkou_Span_B']].max()
-        cloud_bottom = row[['Senkou_Span_A', 'Senkou_Span_B']].min()
-        
-        # Tín hiệu MUA: Giá trên mây VÀ Tenkan > Kijun
-        if row['close'] > cloud_top and row['Tenkan_Sen'] > row['Kijun_Sen']:
-            buy_points += 1
-            
-        # Tín hiệu BÁN: Giá dưới mây HOẶC Tenkan < Kijun
-        if row['close'] < cloud_bottom or row['Tenkan_Sen'] < row['Kijun_Sen']:
-            sell_points += 1
-
-        # Chấm điểm theo %
-        buy_score = (buy_points / total_criteria) * 100
-        sell_score = (sell_points / total_criteria) * 100
-        
-        # Thực hiện logic thay đổi màu sắc của bạn
-        if buy_score >= 60:
-            current_trend = 1   # Đổi sang XANH
-        elif sell_score >= 30:
-            current_trend = -1  # Đổi sang ĐỎ
-        # Trường hợp còn lại: giữ nguyên current_trend (không đổi màu)
+        # --- BƯỚC 1: XỬ LÝ CẮT LỖ CỨNG (QUẢN TRỊ RỦI RO 2%) ---
+        if current_trend == 1 and entry_price > 0:
+            loss_pct = ((row['close'] / entry_price) - 1) * 100
+            if loss_pct <= -2.0:
+                current_trend = -1     # Kích hoạt BÁN ngay lập tức
+                entry_price = 0.0      # Xóa vị thế
+                trends.append(current_trend)
+                continue # Bỏ qua bước kiểm tra kỹ thuật bên dưới, sang phiên tiếp theo
+                
+        # --- BƯỚC 2: XỬ LÝ TÍN HIỆU KỸ THUẬT ---
+        if buy_pct >= 60:
+            if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
+                entry_price = row['close'] # Ghi nhận giá lúc báo Mua
+            current_trend = 1
+        elif sell_pct >= 40:
+            current_trend = -1
+            entry_price = 0.0          # Bán chốt lời/cắt lỗ xong thì xóa vị thế
             
         trends.append(current_trend)
-    
+        
     df['Trend'] = trends
     return df
 
