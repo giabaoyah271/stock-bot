@@ -32,19 +32,93 @@ TOP_MARKET = get_top_100_liquidity()
 
 # --- 3. TÍNH TOÁN CHỈ BÁO KỸ THUẬT ---
 def calculate_indicators(df):
-    if df.empty or len(df) < 20: return df
+    if df.empty or len(df) < 200: 
+        return df
     
+    # --- A. TÍNH TOÁN CÁC CHỈ BÁO ---
+    # 1. Đường trung bình (MA)
     df['SMA20'] = df['close'].rolling(window=20).mean()
     df['SMA50'] = df['close'].rolling(window=50).mean()
+    df['SMA200'] = df['close'].rolling(window=200).mean()
     
+    # 2. RSI
     delta = df['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    rs = gain / (loss + 1e-9)
-    df['RSI'] = 100 - (100 / (1 + rs))
+    df['RSI'] = 100 - (100 / (1 + gain / (loss + 1e-9)))
     
-    # Xác định xu hướng: Giá > SMA20 là 1 (Mua), ngược lại -1 (Bán)
-    df['Trend'] = np.where(df['close'] > df['SMA20'], 1, -1)
+    # 3. MACD
+    exp1 = df['close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = exp1 - exp2
+    df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    
+    # 4. Bollinger Bands
+    df['BB_mid'] = df['SMA20']
+    df['BB_std'] = df['close'].rolling(window=20).std()
+    df['BB_upper'] = df['BB_mid'] + 2 * df['BB_std']
+    df['BB_lower'] = df['BB_mid'] - 2 * df['BB_std']
+    
+    # 5. Ichimoku (Cơ bản)
+    df['Tenkan_Sen'] = (df['high'].rolling(window=9).max() + df['low'].rolling(window=9).min()) / 2
+    df['Kijun_Sen'] = (df['high'].rolling(window=26).max() + df['low'].rolling(window=26).min()) / 2
+    
+    # 6. Khối lượng trung bình
+    df['Vol_Avg'] = df['volume'].rolling(window=20).mean()
+
+    # --- B. LOGIC XÁC ĐỊNH TÍN HIỆU (XANH/ĐỎ) ---
+    trends = []
+    current_trend = -1  # Mặc định ban đầu là Đỏ (Bán)
+    
+    for i in range(len(df)):
+        row = df.iloc[i]
+        
+        # Bỏ qua các dòng đầu chưa đủ dữ liệu tính toán
+        if pd.isna(row['SMA200']) or pd.isna(row['Vol_Avg']):
+            trends.append(-1)
+            continue
+            
+        buy_points = 0
+        sell_points = 0
+        total_criteria = 6 # Tổng số 6 tiêu chí chấm điểm
+        
+        # 1. Tiêu chí MA: Giá > SMA20 và SMA20 > SMA50
+        if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: buy_points += 1
+        if row['close'] < row['SMA20']: sell_points += 1
+        
+        # 2. Tiêu chí Xu hướng lớn: Giá > SMA200
+        if row['close'] > row['SMA200']: buy_points += 1
+        else: sell_points += 1
+        
+        # 3. Tiêu chí RSI: < 30 (Mua) hoặc > 70 (Bán)
+        if row['RSI'] < 30: buy_points += 1
+        if row['RSI'] > 70: sell_points += 1
+        
+        # 4. Tiêu chí MACD: MACD cắt lên Signal
+        if row['MACD'] > row['Signal_Line']: buy_points += 1
+        if row['MACD'] < row['Signal_Line']: sell_points += 1
+        
+        # 5. Tiêu chí Bollinger: Chạm dải dưới (Mua) hoặc dải trên (Bán)
+        if row['close'] < row['BB_lower']: buy_points += 1
+        if row['close'] > row['BB_upper']: sell_points += 1
+        
+        # 6. Tiêu chí Volume: Breakout với Vol > 1.5 lần trung bình
+        if row['volume'] > 1.5 * row['Vol_Avg']: buy_points += 1
+
+        # Chấm điểm theo %
+        buy_score = (buy_points / total_criteria) * 100
+        sell_score = (sell_points / total_criteria) * 100
+        
+        # Thực hiện logic thay đổi màu sắc của bạn
+        if buy_score >= 70:
+            current_trend = 1   # Đổi sang XANH
+        elif sell_score >= 50:
+            current_trend = -1  # Đổi sang ĐỎ
+        # Trường hợp còn lại: giữ nguyên current_trend (không đổi màu)
+            
+        trends.append(current_trend)
+    
+    df['Trend'] = trends
     return df
 
 # --- 4. HÀM LẤY DỮ LIỆU ---
