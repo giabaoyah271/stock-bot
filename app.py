@@ -62,6 +62,9 @@ def calculate_indicators(df):
     # 5. Ichimoku (Cơ bản)
     df['Tenkan_Sen'] = (df['high'].rolling(window=9).max() + df['low'].rolling(window=9).min()) / 2
     df['Kijun_Sen'] = (df['high'].rolling(window=26).max() + df['low'].rolling(window=26).min()) / 2
+    # Tính Senkou Span A và B (Mây)
+    df['Senkou_Span_A'] = ((df['Tenkan_Sen'] + df['Kijun_Sen']) / 2).shift(26)
+    df['Senkou_Span_B'] = ((df['high'].rolling(window=52).max() + df['low'].rolling(window=52).min()) / 2).shift(26)
     
     # 6. Khối lượng trung bình
     df['Vol_Avg'] = df['volume'].rolling(window=20).mean()
@@ -80,7 +83,7 @@ def calculate_indicators(df):
             
         buy_points = 0
         sell_points = 0
-        total_criteria = 6 # Tổng số 6 tiêu chí chấm điểm
+        total_criteria = 7 # Tổng số 6 tiêu chí chấm điểm
         
         # 1. Tiêu chí MA: Giá > SMA20 và SMA20 > SMA50
         if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: buy_points += 1
@@ -104,6 +107,19 @@ def calculate_indicators(df):
         
         # 6. Tiêu chí Volume: Breakout với Vol > 1.5 lần trung bình
         if row['volume'] > 1.5 * row['Vol_Avg']: buy_points += 1
+
+        # 7. Tiêu chí Ichimoku
+        # Xác định vị trí Mây (Cloud)
+        cloud_top = row[['Senkou_Span_A', 'Senkou_Span_B']].max()
+        cloud_bottom = row[['Senkou_Span_A', 'Senkou_Span_B']].min()
+        
+        # Tín hiệu MUA: Giá trên mây VÀ Tenkan > Kijun
+        if row['close'] > cloud_top and row['Tenkan_Sen'] > row['Kijun_Sen']:
+            buy_points += 1
+            
+        # Tín hiệu BÁN: Giá dưới mây HOẶC Tenkan < Kijun
+        if row['close'] < cloud_bottom or row['Tenkan_Sen'] < row['Kijun_Sen']:
+            sell_points += 1
 
         # Chấm điểm theo %
         buy_score = (buy_points / total_criteria) * 100
