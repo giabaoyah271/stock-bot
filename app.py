@@ -64,6 +64,9 @@ def calculate_indicators(df):
 
     # --- B. LOGIC CHẤM ĐIỂM TRỌNG SỐ & QUẢN TRỊ RỦI RO ---
     trends = []
+    buy_pcts = []     # THÊM MỚI
+    sell_pcts = []    # THÊM MỚI
+    reasons = []      # THÊM MỚI
     current_trend = -1  # Mặc định là Đỏ (Bán)
     entry_price = 0.0   # Biến lưu giá vốn để tính cắt lỗ
     
@@ -73,43 +76,53 @@ def calculate_indicators(df):
         # Bỏ qua giai đoạn đầu chưa đủ dữ liệu vẽ mây Ichimoku và MA200
         if pd.isna(row['SMA200']) or pd.isna(row['Senkou_Span_B']):
             trends.append(-1)
+            buy_pcts.append(0)
+            sell_pcts.append(0)
+            reasons.append("Chưa đủ dữ liệu")
             continue
             
-        buy_score = 0.0
+       buy_score = 0.0
         sell_score = 0.0
         max_score = 10.0 # Tổng điểm tuyệt đối
+        reason_list = [] # Lưu lý do của phiên hiện tại
         
         # 1. NHÓM CỐT LÕI (Trọng số cao: 2.0 điểm)
-        # - MA200: Xác định xu hướng vĩ mô
-        if row['close'] > row['SMA200']: buy_score += 2.0
-        else: sell_score += 2.0
-        # - Volume: Dòng tiền lớn
-        if row['volume'] > 1.5 * row['Vol_Avg']: buy_score += 2.0
+        if row['close'] > row['SMA200']: 
+            buy_score += 2.0; reason_list.append("Giá > MA200")
+        else: 
+            sell_score += 2.0; reason_list.append("Giá < MA200")
+            
+        if row['volume'] > 1.5 * row['Vol_Avg']: 
+            buy_score += 2.0; reason_list.append("Vol đột biến")
         
         # 2. NHÓM XÁC NHẬN (Trọng số trung bình: 1.5 điểm)
-        # - Trung bình động ngắn hạn (MA20/50)
-        if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: buy_score += 1.5
-        if row['close'] < row['SMA20']: sell_score += 1.5
-        # - Ichimoku (Giá so với Mây & Tenkan/Kijun)
+        if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: 
+            buy_score += 1.5; reason_list.append("Đà tăng ngắn hạn")
+        if row['close'] < row['SMA20']: 
+            sell_score += 1.5; reason_list.append("Gãy MA20")
+            
         cloud_top = max(row['Senkou_Span_A'], row['Senkou_Span_B'])
         cloud_bottom = min(row['Senkou_Span_A'], row['Senkou_Span_B'])
-        if row['close'] > cloud_top and row['Tenkan_Sen'] > row['Kijun_Sen']: buy_score += 1.5
-        if row['close'] < cloud_bottom or row['Tenkan_Sen'] < row['Kijun_Sen']: sell_score += 1.5
+        if row['close'] > cloud_top and row['Tenkan_Sen'] > row['Kijun_Sen']: 
+            buy_score += 1.5; reason_list.append("Vượt mây Ichi")
+        if row['close'] < cloud_bottom or row['Tenkan_Sen'] < row['Kijun_Sen']: 
+            sell_score += 1.5; reason_list.append("Thủng mây/Cắt xuống Ichi")
         
         # 3. NHÓM BỔ TRỢ & TÌM ĐIỂM VÀO (Trọng số thấp: 1.0 điểm)
-        # - RSI
-        if row['RSI'] < 30: buy_score += 1.0
-        if row['RSI'] > 70: sell_score += 1.0
-        # - MACD
-        if row['MACD'] > row['Signal_Line']: buy_score += 1.0
-        if row['MACD'] < row['Signal_Line']: sell_score += 1.0
-        # - Bollinger Bands
-        if row['close'] < row['BB_lower']: buy_score += 1.0
-        if row['close'] > row['BB_upper']: sell_score += 1.0
+        if row['RSI'] < 30: buy_score += 1.0; reason_list.append("RSI Quá bán")
+        if row['RSI'] > 70: sell_score += 1.0; reason_list.append("RSI Quá mua")
+        if row['MACD'] > row['Signal_Line']: buy_score += 1.0; reason_list.append("MACD Cắt lên")
+        if row['MACD'] < row['Signal_Line']: sell_score += 1.0; reason_list.append("MACD Cắt xuống")
+        if row['close'] < row['BB_lower']: buy_score += 1.0; reason_list.append("Chạm BB dưới")
+        if row['close'] > row['BB_upper']: sell_score += 1.0; reason_list.append("Chạm BB trên")
         
-        # --- QUY ĐỔI RA PHẦN TRĂM ---
+        # --- QUY ĐỔI RA PHẦN TRĂM VÀ LƯU LẠI ---
         buy_pct = (buy_score / max_score) * 100
         sell_pct = (sell_score / max_score) * 100
+        
+        buy_pcts.append(buy_pct)
+        sell_pcts.append(sell_pct)
+        reasons.append(", ".join(reason_list) if reason_list else "Trung lập")
         
         # --- BƯỚC 1: XỬ LÝ CẮT LỖ CỨNG (QUẢN TRỊ RỦI RO 2%) ---
         if current_trend == 1 and entry_price > 0:
@@ -132,6 +145,9 @@ def calculate_indicators(df):
         trends.append(current_trend)
         
     df['Trend'] = trends
+    df['Buy_Pct'] = buy_pcts
+    df['Sell_Pct'] = sell_pcts
+    df['Reason'] = reasons
     return df
 
 # --- 4. HÀM LẤY DỮ LIỆU ---
