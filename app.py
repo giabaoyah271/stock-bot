@@ -141,15 +141,12 @@ def calculate_indicators(df):
         # 4. NHÓM SỨC MẠNH XU HƯỚNG - ADX (Trọng số 1.0)
         if row['ADX'] > 25:
             if row['plus_di'] > row['minus_di']:
-                # Xu hướng tăng mạnh
                 buy_score += 1.0
                 reason_list.append("Xác nhận Trend TĂNG mạnh (ADX)")
             elif row['minus_di'] > row['plus_di']:
-                # Xu hướng giảm mạnh
                 sell_score += 1.0
                 reason_list.append("Xác nhận Trend GIẢM mạnh (ADX)")
         elif row['ADX'] < 20:
-            # Thị trường không xu hướng (Sideway)
             reason_list.append("Thị trường Sideway (ADX thấp)")
         
         # 5. NHÓM BỔ TRỢ & KHỐI LƯỢNG
@@ -163,20 +160,14 @@ def calculate_indicators(df):
             elif abs(price_change) < 0.005: # Quy tắc 4: Nỗ lực nhưng không kết quả
                 sell_score += 0.5
                 reason_list.append("Nỗ lực không kết quả (Nghi vấn phân phối)")
-
-        # Quy tắc 2: Cảnh báo Phá vỡ giả (Fakeout)
-        # Nếu giá tăng mạnh nhưng Vol thấp hơn trung bình
         if price_change > 0.03 and vol_ratio < 0.8:
             buy_score -= 1.0 # Trừ điểm tin cậy
             reason_list.append("Cảnh báo Breakout giả (Vol thấp)")
-
-        # Quy tắc 4: Dấu chân cá mập (Vol đột biến nhưng giá chưa chạy)
         if vol_ratio > 2.5 and abs(price_change) < 0.01:
             reason_list.append("⚠️ Dấu chân Tay to (Bất thường)")
             
         if row['RSI'] < 30: buy_score += 1.0; reason_list.append("RSI Quá bán")
         if row['RSI'] > 70: sell_score += 1.0; reason_list.append("RSI Quá mua")
-        
         if row['MACD'] > row['Signal_Line']: buy_score += 1.0; reason_list.append("MACD Cắt lên")
         if row['MACD'] < row['Signal_Line']: sell_score += 1.0; reason_list.append("MACD Cắt xuống")
 
