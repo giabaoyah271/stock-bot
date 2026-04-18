@@ -125,20 +125,23 @@ def calculate_indicators(df):
         reasons.append(", ".join(reason_list) if reason_list else "Trung lập")
         
         # --- BƯỚC 1: XỬ LÝ CẮT LỖ CỨNG (QUẢN TRỊ RỦI RO 2%) ---
+        days_in_trade = len(trends) - (len(trends) - trends[::-1].index(-1) - 1) if 1 in trends else 0
+
         if current_trend == 1 and entry_price > 0:
             loss_pct = ((row['close'] / entry_price) - 1) * 100
-            if loss_pct <= -2.0:
-                current_trend = -1     # Kích hoạt BÁN ngay lập tức
-                entry_price = 0.0      # Xóa vị thế
+            # Chỉ cho phép báo Bán khi đã cầm cổ phiếu ít nhất 3 phiên (Quy tắc T+)
+            if loss_pct <= -5.0 and days_in_trade >= 3: 
+                current_trend = -1
+                entry_price = 0.0
                 trends.append(current_trend)
-                continue # Bỏ qua bước kiểm tra kỹ thuật bên dưới, sang phiên tiếp theo
+                continue
                 
         # --- BƯỚC 2: XỬ LÝ TÍN HIỆU KỸ THUẬT ---
         if buy_pct >= 55:
             if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
                 entry_price = row['close'] # Ghi nhận giá lúc báo Mua
             current_trend = 1
-        elif sell_pct >= 20:
+        elif sell_pct >= 30:
             current_trend = -1
             entry_price = 0.0          # Bán chốt lời/cắt lỗ xong thì xóa vị thế
             
