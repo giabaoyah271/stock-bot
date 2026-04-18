@@ -134,7 +134,7 @@ def calculate_indicators(df):
                 continue # Bỏ qua bước kiểm tra kỹ thuật bên dưới, sang phiên tiếp theo
                 
         # --- BƯỚC 2: XỬ LÝ TÍN HIỆU KỸ THUẬT ---
-        if buy_pct >= 60:
+        if buy_pct >= 55:
             if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
                 entry_price = row['close'] # Ghi nhận giá lúc báo Mua
             current_trend = 1
