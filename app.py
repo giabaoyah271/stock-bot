@@ -64,74 +64,76 @@ def calculate_indicators(df):
 
     # --- B. LOGIC CHẤM ĐIỂM TRỌNG SỐ & QUẢN TRỊ RỦI RO ---
     trends = []
-    current_trend = -1  # Mặc định là Đỏ (Bán)
-    entry_price = 0.0   # Biến lưu giá vốn để tính cắt lỗ
+    buy_percents = []
+    sell_percents = []
+    reasons_list = []
+    
+    current_trend = -1 
+    entry_price = 0.0  
     
     for i in range(len(df)):
         row = df.iloc[i]
-        
-        # Bỏ qua giai đoạn đầu chưa đủ dữ liệu vẽ mây Ichimoku và MA200
         if pd.isna(row['SMA200']) or pd.isna(row['Senkou_Span_B']):
-            trends.append(-1)
+            trends.append(-1); buy_percents.append(0); sell_percents.append(0); reasons_list.append("")
             continue
             
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 10.0 # Tổng điểm tuyệt đối
+        reasons = []
         
-        # 1. NHÓM CỐT LÕI (Trọng số cao: 2.0 điểm)
-        # - MA200: Xác định xu hướng vĩ mô
-        if row['close'] > row['SMA200']: buy_score += 2.0
+        # 1. NHÓM CỐT LÕI (Trọng số 2.0)
+        if row['close'] > row['SMA200']: 
+            buy_score += 2.0
+            reasons.append("Trên MA200")
         else: sell_score += 2.0
-        # - Volume: Dòng tiền lớn
-        if row['volume'] > 1.5 * row['Vol_Avg']: buy_score += 2.0
         
-        # 2. NHÓM XÁC NHẬN (Trọng số trung bình: 1.5 điểm)
-        # - Trung bình động ngắn hạn (MA20/50)
-        if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: buy_score += 1.5
-        if row['close'] < row['SMA20']: sell_score += 1.5
-        # - Ichimoku (Giá so với Mây & Tenkan/Kijun)
+        if row['volume'] > 1.5 * row['Vol_Avg']: 
+            buy_score += 2.0
+            reasons.append("Vol đột biến")
+        
+        # 2. NHÓM XÁC NHẬN (Trọng số 1.5)
+        if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: 
+            buy_score += 1.5
+            reasons.append("MA hội tụ dương")
+            
         cloud_top = max(row['Senkou_Span_A'], row['Senkou_Span_B'])
-        cloud_bottom = min(row['Senkou_Span_A'], row['Senkou_Span_B'])
-        if row['close'] > cloud_top and row['Tenkan_Sen'] > row['Kijun_Sen']: buy_score += 1.5
-        if row['close'] < cloud_bottom or row['Tenkan_Sen'] < row['Kijun_Sen']: sell_score += 1.5
+        if row['close'] > cloud_top: 
+            buy_score += 1.5
+            reasons.append("Vượt mây Ichimoku")
         
-        # 3. NHÓM BỔ TRỢ & TÌM ĐIỂM VÀO (Trọng số thấp: 1.0 điểm)
-        # - RSI
-        if row['RSI'] < 30: buy_score += 1.0
-        if row['RSI'] > 70: sell_score += 1.0
-        # - MACD
-        if row['MACD'] > row['Signal_Line']: buy_score += 1.0
-        if row['MACD'] < row['Signal_Line']: sell_score += 1.0
-        # - Bollinger Bands
-        if row['close'] < row['BB_lower']: buy_score += 1.0
-        if row['close'] > row['BB_upper']: sell_score += 1.0
+        # 3. NHÓM BỔ TRỢ (Trọng số 1.0)
+        if row['RSI'] < 35: 
+            buy_score += 1.0
+            reasons.append("RSI Quá bán")
+        if row['MACD'] > row['Signal_Line']: 
+            buy_score += 1.0
+            reasons.append("MACD cắt lên")
+
+        buy_pct = (buy_score / 10.0) * 100
+        sell_pct = (sell_score / 10.0) * 100
         
-        # --- QUY ĐỔI RA PHẦN TRĂM ---
-        buy_pct = (buy_score / max_score) * 100
-        sell_pct = (sell_score / max_score) * 100
-        
-        # --- BƯỚC 1: XỬ LÝ CẮT LỖ CỨNG (QUẢN TRỊ RỦI RO 2%) ---
+        # Quản trị rủi ro 2%
         if current_trend == 1 and entry_price > 0:
-            loss_pct = ((row['close'] / entry_price) - 1) * 100
-            if loss_pct <= -2.0:
-                current_trend = -1     # Kích hoạt BÁN ngay lập tức
-                entry_price = 0.0      # Xóa vị thế
-                trends.append(current_trend)
-                continue # Bỏ qua bước kiểm tra kỹ thuật bên dưới, sang phiên tiếp theo
-                
-        # --- BƯỚC 2: XỬ LÝ TÍN HIỆU KỸ THUẬT ---
+            if ((row['close'] / entry_price) - 1) * 100 <= -2.0:
+                current_trend = -1
+                entry_price = 0.0
+        
+        # Logic tín hiệu (60% Mua - 30% Bán)
         if buy_pct >= 60:
-            if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
-                entry_price = row['close'] # Ghi nhận giá lúc báo Mua
+            if current_trend != 1: entry_price = row['close']
             current_trend = 1
         elif sell_pct >= 30:
             current_trend = -1
-            entry_price = 0.0          # Bán chốt lời/cắt lỗ xong thì xóa vị thế
             
         trends.append(current_trend)
+        buy_percents.append(buy_pct)
+        sell_percents.append(sell_pct)
+        reasons_list.append(" | ".join(reasons))
         
     df['Trend'] = trends
+    df['Buy_Consensus'] = buy_percents
+    df['Sell_Consensus'] = sell_percents
+    df['Reasons'] = reasons_list
     return df
 
 # --- 4. HÀM LẤY DỮ LIỆU ---
@@ -214,54 +216,48 @@ if mode == "Phân tích chi tiết mã":
 else:
     st.header(f"🔍 Trình quét tín hiệu (Khung: {timeframe})")
     if st.button("Bắt đầu phân tích"):
-        results = []
-        bar = st.progress(0)
-        for i, s in enumerate(TOP_MARKET):
-            data = get_data(s, timeframe)
-            if not data.empty:
-                last_s = data.iloc[-1]
-                is_green = last_s['Trend'] == 1
-                status = "🟢 MUA" if is_green else "🔴 BÁN"
-                
-                # Tìm mức giá tại ngày báo tín hiệu
-                change = data[data['Trend'] != data['Trend'].shift(1)]
-                entry_date = change[change['Trend'] == data['Trend'].iloc[-1]].index[-1] if not change.empty else data.index[0]
-                entry_price = data.loc[entry_date, 'close']
-                profit = ((last_s['close'] / entry_price) - 1) * 100
-                
-                results.append({
-                    "Mã": s, 
-                    "Trạng thái": status, 
-                    "Giá Tín Hiệu": entry_price, 
-                    "Giá Hiện Tại": last_s['close'],
-                    "Lời/Lỗ (%)": profit
-                })
+    results = []
+    bar = st.progress(0)
+    for i, s in enumerate(TOP_MARKET):
+        data = get_data(s, timeframe)
+        if not data.empty:
+            last_s = data.iloc[-1]
+            status = "🟢 MUA" if last_s['Trend'] == 1 else "🔴 BÁN"
             
-            bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(1.5) # Tránh bị API block
-        df_res = pd.DataFrame(results)
-        if not df_res.empty:
-            # Ép kiểu số để tính toán và định dạng chính xác
-            cols_to_fix = ["Giá Tín Hiệu", "Giá Hiện Tại", "Lời/Lỗ (%)"]
-            for col in cols_to_fix:
-                if col in df_res.columns:
-                    df_res[col] = pd.to_numeric(df_res[col], errors='coerce')
-            # --- PHẦN QUAN TRỌNG: TẠO CỘT STT ---
-            # Sắp xếp lại index và tạo cột STT bắt đầu từ 1
-            df_res = df_res.reset_index(drop=True)
-            df_res.insert(0, "STT", range(1, len(df_res) + 1))
-            # 2. Hiển thị bảng
-            st.dataframe(
-                df_res,
-                column_config={
-                    "STT": st.column_config.NumberColumn("STT", width="small"),
-                    "Giá Tín Hiệu": st.column_config.NumberColumn("Giá Tín Hiệu", format="%.2f"),
-                    "Giá Hiện Tại": st.column_config.NumberColumn("Giá Hiện Tại", format="%.2f"),
-                    "Lời/Lỗ (%)": st.column_config.NumberColumn("Lời/Lỗ (%)", format="%.2f%%"),
-                },
-                use_container_width=True,
-                height=600,
-                hide_index=True # Ẩn cột chỉ số mặc định của Pandas để dùng cột STT mình tự tạo
-            )
+            # Lấy giá tín hiệu
+            change = data[data['Trend'] != data['Trend'].shift(1)]
+            entry_price = data.loc[change.index[-1], 'close'] if not change.empty else data.index[0]
+            profit = ((last_s['close'] / entry_price) - 1) * 100
+            
+            results.append({
+                "Mã": s, 
+                "Trạng thái": status, 
+                "Đồng thuận Mua": last_s['Buy_Consensus'],
+                "Đồng thuận Bán": last_s['Sell_Consensus'],
+                "Lý do kỹ thuật": last_s['Reasons'],
+                "Giá Hiện Tại": last_s['close'],
+                "Lời/Lỗ (%)": profit
+            })
+        
+        bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
+        time.sleep(1.5) # Giảm sleep nếu API ổn định để quét nhanh hơn
+        
+    df_res = pd.DataFrame(results)
+    if not df_res.empty:
+        df_res.insert(0, "STT", range(1, len(df_res) + 1))
+        
+        # Cấu hình hiển thị bảng chuyên nghiệp
+        st.dataframe(
+            df_res,
+            column_config={
+                "STT": st.column_config.NumberColumn("STT", width="small"),
+                "Đồng thuận Mua": st.column_config.ProgressColumn("Đồng thuận Mua", format="%d%%", min_value=0, max_value=100),
+                "Đồng thuận Bán": st.column_config.ProgressColumn("Đồng thuận Bán", format="%d%%", min_value=0, max_value=100),
+                "Lý do kỹ thuật": st.column_config.TextColumn("Lý do hệ thống", width="large"),
+                "Lời/Lỗ (%)": st.column_config.NumberColumn("Lời/Lỗ (%)", format="%.2f%%"),
+            },
+            use_container_width=True,
+            hide_index=True
+        )
         else:
             st.warning("Không có dữ liệu nào được tìm thấy.")
