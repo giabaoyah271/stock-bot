@@ -97,6 +97,8 @@ def calculate_indicators(df):
     
     for i in range(len(df)):
         row = df.iloc[i]
+        vol_ratio = row['Vol_Ratio']
+        price_change = (row['close'] - row['open']) / (row['open'] + 1e-9)
         
         # Bỏ qua giai đoạn đầu chưa đủ dữ liệu vẽ mây Ichimoku và MA200
         if pd.isna(row['SMA200']) or pd.isna(row['Senkou_Span_B']):
@@ -150,7 +152,7 @@ def calculate_indicators(df):
             # Thị trường không xu hướng (Sideway)
             reason_list.append("Thị trường Sideway (ADX thấp)")
         
-        # 5. NHÓM BỔ TRỢ & KHỐI LƯỢNG (Trọng số 1.0)
+        # 5. NHÓM BỔ TRỢ & KHỐI LƯỢNG
         if vol_ratio >= 1.5:
             if price_change > 0.02: # Giá tăng > 2% + Vol lớn
                 buy_score += 1.5
