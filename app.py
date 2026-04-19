@@ -20,11 +20,11 @@ def get_top_100_liquidity():
             'NKG', 'GVR', 'FPT', 'MWG', 'MSN', 'VIC', 'VHM', 'VCB', 'BID', 'CTG',
             'LPB', 'HDB', 'TPB', 'MSB', 'OCB', 'EIB', 'VIB', 'DGC', 'DPM', 'DCM',
             'PVD', 'PVS', 'PVT', 'BSR', 'GAS', 'PLX', 'POW', 'VRE', 'GMD', 'HAH',
-            'VJC', 'HVN', 'REE', 'PC1', 'VCG', 'HHV', 'LCG', 'C4G', 'FCN', 'CII',
-            'KBC', 'SZC', 'IDC', 'ITA', 'HQC', 'SCR', 'CRE', 'KHG', 'TDC', 'IJC',
-            'VPI', 'CTD', 'SAB', 'PNJ', 'DBC', 'PAN', 'ANV', 'IDI', 'VHC', 'GEG',
-            'NT2', 'PPC', 'TV2', 'CSV', 'BFC', 'LAS', 'PHR', 'DPR', 'VGT', 'MSH',
-            'TCM', 'LSS', 'SBT', 'QCG', 'DXS', 'HUT', 'TNG', 'VGS', 'MBS', 'PVC'
+            'VJC', 'HVN', 'REE', 'PC1', 'VCG', 'HHV', 'LCG', 'EVF', 'FCN', 'CII',
+            'KBC', 'SZC', 'IDC', 'GEX', 'VNM', 'FRT', 'FTS', 'NLG', 'DGW', 'BAF',
+            'VPI', 'CTD', 'SAB', 'PNJ', 'DBC', 'PAN', 'ANV', 'VGC', 'VHC', 'GEG',
+            'NT2', 'HDC', 'TV2', 'CSV', 'BFC', 'LAS', 'PHR', 'DPR', 'TCH', 'MSH',
+            'TCM', 'CTS', 'GEE', 'KDH', 'BSI', 'HUT', 'TNG', 'VGS', 'MBS', 'AGR'
         ]
 
 TOP_MARKET = get_top_100_liquidity()
