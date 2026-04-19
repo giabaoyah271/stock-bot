@@ -378,7 +378,7 @@ else:
                 })
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(1.2) # Tránh bị API block
+            time.sleep(1.15) # Tránh bị API block
         df_res = pd.DataFrame(results)
         if not df_res.empty:
             # Ép kiểu số để tính toán và định dạng chính xác
