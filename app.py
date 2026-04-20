@@ -35,13 +35,13 @@ def calculate_indicators(df):
         return df
     
     # --- A. TÍNH TOÁN CÁC CHỈ BÁO ---
-    df['SMA20'] = df['close'].rolling(window=20).mean()
-    df['SMA50'] = df['close'].rolling(window=50).mean()
-    df['SMA200'] = df['close'].rolling(window=200).mean()
+    df['SMA20'] = df['close'].ewm(span=20, adjust=False).mean()
+    df['SMA50'] = df['close'].ewm(span=50, adjust=False).mean()
+    df['SMA200'] = df['close'].ewm(span=200, adjust=False).mean()
     
     delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    gain = (delta.where(delta > 0, 0)).ewm(span=14, adjust=False).mean()
+    loss = (-delta.where(delta < 0, 0)).ewm(span=14, adjust=False).mean()
     df['RSI'] = 100 - (100 / (1 + gain / (loss + 1e-9)))
     df['Price_Min_10'] = df['low'].rolling(window=10).min()
     df['Price_Max_10'] = df['high'].rolling(window=10).max()
