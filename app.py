@@ -10,7 +10,6 @@ import time
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(page_title="Hệ thống Giao dịch Xanh-Đỏ", layout="wide")
 TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
-
 # --- 2. HÀM LẤY TOP 100 THANH KHOẢN ---
 @st.cache_data(ttl=3600)
 def get_top_100_liquidity():
@@ -180,7 +179,6 @@ def calculate_indicators(df):
         # --- QUY ĐỔI RA PHẦN TRĂM VÀ LƯU LẠI ---
         buy_pct = (buy_score / max_score) * 100
         sell_pct = (sell_score / max_score) * 100
-        
         buy_pcts.append(buy_pct)
         sell_pcts.append(sell_pct)
         reasons.append(", ".join(reason_list) if reason_list else "Trung lập")
@@ -326,7 +324,8 @@ if mode == "Phân tích chi tiết mã":
         fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
         # Nến giá & SMA
         fig.add_trace(go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'], name="Nến giá"), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], line=dict(color='cyan', width=1.5), name="SMA20"), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], line=dict(color='rgba(0, 255, 255, 0.3)', width=1), name="SMA20 (Mờ)"), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Trailing_Stop'], line=dict(color='magenta', width=2.5, dash='dot'), name="Đường Dừng Lỗ Động"), row=1, col=1)
         # MŨI TÊN TÍN HIỆU MUA/BÁN
         buy_signals = df[(df['Trend'] == 1) & (df['Trend'].shift(1) == -1)]
         sell_signals = df[(df['Trend'] == -1) & (df['Trend'].shift(1) == 1)]
