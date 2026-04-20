@@ -97,12 +97,13 @@ def calculate_indicators(df):
         
     # --- B. LOGIC CHẤM ĐIỂM TRỌNG SỐ & QUẢN TRỊ RỦI RO ---
     trends = []
-    buy_pcts = []     # THÊM MỚI
-    sell_pcts = []    # THÊM MỚI
-    reasons = []      # THÊM MỚI
+    buy_pcts = []    
+    sell_pcts = []    
+    reasons = []     
+    trailing_stops_list = [] # THÊM MỚI: Mảng lưu giá trị vẽ biểu đồ
     current_trend = -1  # Mặc định là Đỏ (Bán)
     entry_price = 0.0   # Biến lưu giá vốn để tính cắt lỗ
-    trailing_stop = 0.0 # THÊM MỚI: Biến lưu giá cắt lỗ động
+    trailing_stop = 0.0 # Biến lưu giá cắt lỗ động
     for i in range(len(df)):
         row = df.iloc[i]
         # Bỏ qua giai đoạn đầu chưa đủ dữ liệu vẽ mây Ichimoku và MA200
@@ -186,36 +187,46 @@ def calculate_indicators(df):
         
         # --- BƯỚC 1: XỬ LÝ CẮT LỖ CỨNG (QUẢN TRỊ RỦI RO 2%) ---
         days_in_trade = len(trends) - (len(trends) - trends[::-1].index(-1) - 1) if 1 in trends else 0
-
+        current_ts_val = np.nan # Mặc định mốc cắt lỗ rỗng nếu đang ở vùng Đỏ
         if current_trend == 1 and entry_price > 0:
-            # Tính mức dừng lỗ của phiên hiện tại (Hệ số nhân ATR thường là 2 hoặc 1.5)
-            current_stop = row['close'] - (2 * row['ATR'])
-            
-            # Dời stoploss lên nếu giá tăng, tuyệt đối không hạ stoploss xuống
+            # Thu hẹp ATR xuống 1.5 để chốt lời/cắt lỗ nhạy hơn (Khắc phục Bán Trễ)
+            current_stop = row['close'] - (1.5 * row['ATR']) 
             trailing_stop = max(trailing_stop, current_stop)
-            
-            # Chỉ cho phép báo Bán khi đã cầm cổ phiếu ít nhất 3 phiên (Quy tắc T+) và Giá thủng Cắt lỗ động
+            current_ts_val = trailing_stop # Ghi nhận để vẽ biểu đồ
+            # Bán ngay lập tức nếu giá thủng đường Cắt Lỗ Động
             if row['close'] <= trailing_stop and days_in_trade >= 3: 
                 current_trend = -1
                 entry_price = 0.0
                 trailing_stop = 0.0
                 trends.append(current_trend)
-                continue
-                
+                trailing_stops_list.append(np.nan)
+                continue  
+                    
         # --- BƯỚC 2: XỬ LÝ TÍN HIỆU KỸ THUẬT ---
-        if buy_pct >= 60:
-            if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
-                entry_price = row['close'] # Ghi nhận giá lúc báo Mua
-                trailing_stop = row['close'] - (2 * row['ATR']) # Thiết lập giá cắt lỗ động ban đầu
-            current_trend = 1
-        elif sell_pct >= 30:
-            current_trend = -1
-            entry_price = 0.0          # Bán chốt lời/cắt lỗ xong thì xóa vị thế
-            trailing_stop = 0.0        # Xóa mức cắt lỗ động
-            
+        # Tín hiệu Mua Sớm: Vol đột biến + MACD hướng lên + Nến Xanh
+        early_buy = (row['volume'] > 1.5 * row['Vol_Avg']) and (row['MACD'] > row['Signal_Line']) and (row['close'] > row['open'])
+        if current_trend != 1:
+            # BỘ LỌC CHỐNG NHIỄU THEO ADX
+            # Nếu có sóng (ADX >= 20): Chỉ cần điểm > 50 HOẶC có tín hiệu Mua sớm là nhảy vào ngay (Khắc phục Mua Trễ)
+            # Nếu đi ngang (ADX < 20): Phải siết điều kiện cực ngặt (Điểm > 70) mới được mua (Khắc phục Nhiễu)
+            if (row['ADX'] >= 20 and (buy_pct >= 50 or (buy_pct >= 40 and early_buy))) or \
+               (row['ADX'] < 20 and buy_pct >= 70):
+                entry_price = row['close']
+                trailing_stop = row['close'] - (1.5 * row['ATR'])
+                current_trend = 1
+                current_ts_val = trailing_stop
+        elif current_trend == 1:
+            # Đang cầm hàng, chủ yếu bán bằng Trailing Stop ở Bước 1. 
+            # Nhưng nếu cấu trúc suy yếu cực mạnh thì bán chủ động sớm
+            if sell_pct >= 40 and days_in_trade >= 3:
+                current_trend = -1
+                entry_price = 0.0          
+                trailing_stop = 0.0
+                current_ts_val = np.nan
         trends.append(current_trend)
-        
+        trailing_stops_list.append(current_ts_val)
     df['Trend'] = trends
+    df['Trailing_Stop'] = trailing_stops_list # Đưa mảng vào DataFrame
     df['Buy_Pct'] = buy_pcts
     df['Sell_Pct'] = sell_pcts
     df['Reason'] = reasons
@@ -239,11 +250,9 @@ def get_data(symbol, tf):
 st.sidebar.title("🛠️ Điều khiển")
 mode = st.sidebar.radio("Chế độ", ["Phân tích chi tiết mã", "Quét tín hiệu toàn thị trường"])
 timeframe = st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
-
 if mode == "Phân tích chi tiết mã":
     symbol = st.sidebar.text_input("Nhập mã cổ phiếu", "HPG").upper()
     df = get_data(symbol, timeframe)
-    
     if not df.empty:
         last_row = df.iloc[-1]
         is_green = last_row['Trend'] == 1
@@ -258,7 +267,6 @@ if mode == "Phân tích chi tiết mã":
         last_price = last_row['close']
         profit = ((last_price / entry_price) - 1) * 100
         days_held = len(df.loc[entry_date:])
-
         # Tính toán các mức giá (Bạn có thể tự chỉnh sửa công thức % này theo ý muốn)
         if is_green:
             stop_loss = last_price - (2 * last_row['ATR']) 
@@ -267,23 +275,19 @@ if mode == "Phân tích chi tiết mã":
         target_1 = entry_price * 1.1
         target_2 = entry_price * 1.3
         target_3 = entry_price * 1.44
-        
         action_text = "MUA" if is_green else "BÁN"
         color_action = "blue" if is_green else "red"
         color_profit = "blue" if profit >= 0 else "red"
         status_text = "Đã Lãi" if profit >= 0 else "Đang Lỗ"
         rec_text = "Vùng Xanh, Tiếp tục nắm giữ" if is_green else "Vùng Đỏ, Đứng ngoài quan sát"
         rec_color = "green" if is_green else "red"
-
         # Hiển thị layout giống hình mẫu
         # 1. Tiêu đề Mã và Khuyến nghị chính
         st.markdown(f"<h1 style='text-align: center; color: #800080; margin-bottom:0px;'>{symbol}</h1>", unsafe_allow_html=True)
         st.markdown(f"<p style='text-align: center; font-size: 20px; font-weight: bold; color: {rec_color};'>{rec_text.upper()}</p>", unsafe_allow_html=True)
         st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
-
         # 2. Tạo 3 cột để dàn hàng ngang các thông tin quan trọng
         col_main1, col_main2, col_main3 = st.columns(3)
-        
         with col_main1:
             st.markdown(f"""
                 <div style='background-color: rgba(128, 128, 128, 0.1); padding: 15px; border-radius: 10px; text-align: center;'>
@@ -292,7 +296,6 @@ if mode == "Phân tích chi tiết mã":
                     <p style='margin:0; color: gray;'>Ngày: {entry_date.strftime('%d/%m/%Y')}</p>
                 </div>
             """, unsafe_allow_html=True)
-
         with col_main2:
             st.markdown(f"""
                 <div style='background-color: rgba(128, 128, 128, 0.1); padding: 15px; border-radius: 10px; text-align: center;'>
@@ -301,7 +304,6 @@ if mode == "Phân tích chi tiết mã":
                     <p style='margin:0; color: {color_profit}; font-weight: bold;'>{status_text} {profit:.1f}%</p>
                 </div>
             """, unsafe_allow_html=True)
-
         with col_main3:
             st.markdown(f"""
                 <div style='background-color: rgba(128, 128, 128, 0.1); padding: 15px; border-radius: 10px; text-align: center;'>
@@ -310,7 +312,6 @@ if mode == "Phân tích chi tiết mã":
                     <p style='margin:0; color: gray;'>Cắt lỗ/Chốt lãi</p>
                 </div>
             """, unsafe_allow_html=True)
-
         # 3. Mục tiêu dự kiến dàn hàng ngang bên dưới
         st.write("") # Tạo khoảng cách nhỏ
         st.markdown(f"""
@@ -319,35 +320,27 @@ if mode == "Phân tích chi tiết mã":
                 <span style='font-size: 18px; margin-left: 20px;'><b>{target_1:.1f}</b> (T1)  —  <b>{target_2:.1f}</b> (T2)  —  <b>{target_3:.1f}</b> (T3)</span>
             </div>
         """, unsafe_allow_html=True)
-        
         # 4. Giữ nguyên phần info Đồng thuận & Lý do phía dưới cùng
         st.info(f"📊 **Đồng thuận hệ thống:** MUA ({last_row['Buy_Pct']:.0f}%) - BÁN ({last_row['Sell_Pct']:.0f}%)\n\n📌 **Lý do tín hiệu:** {last_row['Reason']}")
-
         # --- VẼ BIỂU ĐỒ ---
         fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
-
         # Nến giá & SMA
         fig.add_trace(go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'], name="Nến giá"), row=1, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], line=dict(color='cyan', width=1.5), name="SMA20"), row=1, col=1)
-        
         # MŨI TÊN TÍN HIỆU MUA/BÁN
         buy_signals = df[(df['Trend'] == 1) & (df['Trend'].shift(1) == -1)]
         sell_signals = df[(df['Trend'] == -1) & (df['Trend'].shift(1) == 1)]
-        
         fig.add_trace(go.Scatter(x=buy_signals.index, y=buy_signals['low']*0.97, mode='markers', marker=dict(symbol='triangle-up', color='lime', size=16), name='Điểm MUA'), row=1, col=1)
         fig.add_trace(go.Scatter(x=sell_signals.index, y=sell_signals['high']*1.03, mode='markers', marker=dict(symbol='triangle-down', color='red', size=16), name='Điểm BÁN'), row=1, col=1)
-
         # Volume & RSI
         colors_vol = ['green' if df['close'].iloc[i] >= df['open'].iloc[i] else 'red' for i in range(len(df))]
         fig.add_trace(go.Bar(x=df.index, y=df['volume'], marker_color=colors_vol, name="Khối lượng"), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='purple', width=2), name="RSI"), row=3, col=1)
-
         fig.update_layout(xaxis_rangeslider_visible=False, template="plotly_dark", height=750, margin=dict(l=10, r=10, t=10, b=10), hovermode='x unified')
         fig.update_xaxes(range=[df.index[-100], df.index[-1]])
         st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
     else:
         st.error("⚠️ Không thể kết nối dữ liệu.")
-
 else:
     st.header(f"🔍 Trình quét tín hiệu (Khung: {timeframe})")
     if st.button("Bắt đầu phân tích"):
@@ -359,13 +352,11 @@ else:
                 last_s = data.iloc[-1]
                 is_green = last_s['Trend'] == 1
                 status = "🟢 MUA" if is_green else "🔴 BÁN"
-                
                 # Tìm mức giá tại ngày báo tín hiệu
                 change = data[data['Trend'] != data['Trend'].shift(1)]
                 entry_date = change[change['Trend'] == data['Trend'].iloc[-1]].index[-1] if not change.empty else data.index[0]
                 entry_price = data.loc[entry_date, 'close']
                 profit = ((last_s['close'] / entry_price) - 1) * 100
-                
                 results.append({
                     "Mã": s, 
                     "Trạng thái": status, 
@@ -376,7 +367,6 @@ else:
                     "% Đồng Thuận Bán": last_s['Sell_Pct'],
                     "Lý do": last_s['Reason']
                 })
-            
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
             time.sleep(1.15) # Tránh bị API block
         df_res = pd.DataFrame(results)
