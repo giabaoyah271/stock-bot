@@ -38,7 +38,12 @@ def calculate_indicators(df):
     df['SMA20'] = df['close'].rolling(window=20).mean()
     df['SMA50'] = df['close'].rolling(window=50).mean()
     df['SMA200'] = df['close'].rolling(window=200).mean()
-    
+    # Tính toán thân nến và bóng nến
+    df['body'] = abs(df['close'] - df['open'])
+    df['lower_shadow'] = df[['open', 'close']].min(axis=1) - df['low']
+    df['upper_shadow'] = df['high'] - df[['open', 'close']].max(axis=1)
+    # Định nghĩa nến rút chân tăng (Bullish Pin Bar): Bóng dưới dài gấp ít nhất 2 lần thân nến
+    df['is_bullish_pinbar'] = (df['lower_shadow'] > 2 * df['body']) & (df['lower_shadow'] > df['upper_shadow'])
     delta = df['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -114,20 +119,23 @@ def calculate_indicators(df):
             continue
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 15.0 # Tổng điểm tuyệt đối
+        max_score = 18.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
         # 1. NHÓM CỐT LÕI 
         if row['close'] > row['SMA200']: 
-            buy_score += 2.5; reason_list.append("Giá > MA200")
+            buy_score += 1.5; reason_list.append("Giá > MA200")
         else: 
-            sell_score += 2.5; reason_list.append("Giá < MA200")
-            
-        if row['volume'] > 1.5 * row['Vol_Avg']: 
+            sell_score += 1.5; reason_list.append("Giá < MA200")
+        if row['is_bullish_pinbar']:
+            if row['RSI'] < 40 or row['close'] < row['BB_mid']:
+                buy_score += 3.0
+                reason_list.append("Nến rút chân (Tín hiệu sớm)")
+        if row['volume'] > 1.7 * row['Vol_Avg']: 
             if row['close'] > row['open']: 
-                buy_score += 1.5; reason_list.append("Cầu mạnh (Vol đột biến)")
+                buy_score += 2.5; reason_list.append("Cầu mạnh (Vol đột biến)")
             elif row['close'] < row['open']:
-                sell_score += 1.5; reason_list.append("Bán tháo (Vol đột biến)")
+                sell_score += 2.5; reason_list.append("Bán tháo (Vol đột biến)")
             else:
                 pass
                 
