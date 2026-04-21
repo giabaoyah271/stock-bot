@@ -115,12 +115,12 @@ def calculate_indicators(df):
             continue
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 20.0 # Tổng điểm tuyệt đối
+        max_score = 19.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         # Nếu giá vượt đỉnh 20 phiên với Volume lớn -> Tự động cộng điểm cực cao
         prev_max_20 = df['Price_Max_20'].iloc[i-1]
         if row['close'] >= prev_max_20 and row['volume'] > 1.8 * row['Vol_Avg']:
-            buy_score += 3.5 
+            buy_score += 3.0 
             reason_list.append("FAST TRACK: Bùng nổ Giá & Vol")
         if row['MFI'] > 55: 
             buy_score += 3.0; reason_list.append("Dòng tiền vào mạnh")
@@ -140,9 +140,9 @@ def calculate_indicators(df):
         # Nếu ADX > 25: Xu hướng mạnh, tin tưởng vào các chỉ báo hướng
         if row['ADX'] > 25:
             if row['Plus_DI'] > row['Minus_DI']:
-                buy_score += 2.0; reason_list.append("Trend tăng mạnh (ADX)")
+                buy_score += 1.5; reason_list.append("Trend tăng mạnh (ADX)")
             elif row['Minus_DI'] > row['Plus_DI']:
-                sell_score += 2.0; reason_list.append("Trend giảm mạnh (ADX)")
+                sell_score += 1.5; reason_list.append("Trend giảm mạnh (ADX)")
         # Nếu ADX < 20: Thị trường đi ngang, trừ điểm để cảnh báo rủi ro tín hiệu giả
         elif row['ADX'] < 20:
             reason_list.append("Sideways (ADX thấp)")
