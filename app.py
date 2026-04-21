@@ -118,7 +118,8 @@ def calculate_indicators(df):
         max_score = 20.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         # Nếu giá vượt đỉnh 20 phiên với Volume lớn -> Tự động cộng điểm cực cao
-        if row['close'] >= row['Price_Max_20'].shift(1) and row['volume'] > 2.0 * row['Vol_Avg']:
+        prev_max_20 = df['Price_Max_20'].iloc[i-1]
+        if row['close'] >= prev_max_20 and row['volume'] > 1.8 * row['Vol_Avg']:
             buy_score += 4.0 
             reason_list.append("FAST TRACK: Bùng nổ Giá & Vol")
         if row['MFI'] > 55: 
@@ -231,7 +232,6 @@ timeframe = st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index
 if mode == "Phân tích chi tiết mã":
     symbol = st.sidebar.text_input("Nhập mã cổ phiếu", "HPG").upper()
     df = get_data(symbol, timeframe)
-    
     if not df.empty:
         last_row = df.iloc[-1]
         is_green = last_row['Trend'] == 1
