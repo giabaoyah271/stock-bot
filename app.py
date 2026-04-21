@@ -119,7 +119,7 @@ def calculate_indicators(df):
             continue
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 14.5 # Tổng điểm tuyệt đối
+        max_score = 13.5 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
         # 1. NHÓM CỐT LÕI 
