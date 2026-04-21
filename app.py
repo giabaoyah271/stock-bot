@@ -121,7 +121,7 @@ def calculate_indicators(df):
         if row['close'] >= row['Price_Max_20'].shift(1) and row['volume'] > 2.0 * row['Vol_Avg']:
             buy_score += 4.0 
             reason_list.append("FAST TRACK: Bùng nổ Giá & Vol")
-         if row['MFI'] > 55: 
+        if row['MFI'] > 55: 
             buy_score += 3.0; reason_list.append("Dòng tiền vào mạnh")
         if row['MFI'] < 35: 
             sell_score += 3.0; reason_list.append("Dòng tiền rút ra")
