@@ -119,23 +119,19 @@ def calculate_indicators(df):
             continue
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 18.0 # Tổng điểm tuyệt đối
+        max_score = 14.5 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
         
         # 1. NHÓM CỐT LÕI 
         if row['close'] > row['SMA200']: 
-            buy_score += 1.5; reason_list.append("Giá > MA200")
+            buy_score += 2.0; reason_list.append("Giá > MA200")
         else: 
-            sell_score += 1.5; reason_list.append("Giá < MA200")
-        if row['is_bullish_pinbar']:
-            if row['RSI'] < 40 or row['close'] < row['BB_mid']:
-                buy_score += 3.0
-                reason_list.append("Nến rút chân (Tín hiệu sớm)")
+            sell_score += 2.0; reason_list.append("Giá < MA200")
         if row['volume'] > 1.5 * row['Vol_Avg']: 
             if row['close'] > row['open']: 
-                buy_score += 2.5; reason_list.append("Cầu mạnh (Vol đột biến)")
+                buy_score += 1.5; reason_list.append("Cầu mạnh (Vol đột biến)")
             elif row['close'] < row['open']:
-                sell_score += 2.5; reason_list.append("Bán tháo (Vol đột biến)")
+                sell_score += 1.5; reason_list.append("Bán tháo (Vol đột biến)")
             else:
                 pass
                 
