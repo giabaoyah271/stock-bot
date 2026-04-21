@@ -35,15 +35,14 @@ def calculate_indicators(df):
         return df
     
     # --- A. TÍNH TOÁN CÁC CHỈ BÁO ---
-    df['SMA20'] = df['close'].ewm(span=20, adjust=False).mean()
-    df['SMA50'] = df['close'].ewm(span=50, adjust=False).mean()
-    df['SMA200'] = df['close'].ewm(span=200, adjust=False).mean()
+    df['SMA20'] = df['close'].rolling(window=20).mean()
+    df['SMA50'] = df['close'].rolling(window=50).mean()
+    df['SMA200'] = df['close'].rolling(window=200).mean()
     
     delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).ewm(span=14, adjust=False).mean()
-    loss = (-delta.where(delta < 0, 0)).ewm(span=14, adjust=False).mean()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     df['RSI'] = 100 - (100 / (1 + gain / (loss + 1e-9)))
-    df['Price_Max_20'] = df['high'].rolling(window=20).max()
     df['Price_Min_10'] = df['low'].rolling(window=10).min()
     df['Price_Max_10'] = df['high'].rolling(window=10).max()
     df['RSI_Min_10'] = df['RSI'].rolling(window=10).min()
@@ -115,28 +114,28 @@ def calculate_indicators(df):
             continue
         buy_score = 0.0
         sell_score = 0.0
-        max_score = 18.0 # Tổng điểm tuyệt đối
+        max_score = 15.0 # Tổng điểm tuyệt đối
         reason_list = [] # Lưu lý do của phiên hiện tại
-        # Nếu giá vượt đỉnh 20 phiên với Volume lớn -> Tự động cộng điểm cực cao
-        prev_max_20 = df['Price_Max_20'].iloc[i-1]
-        if row['close'] >= prev_max_20 and row['volume'] > 1.8 * row['Vol_Avg']:
-            buy_score += 2.5 
-            reason_list.append("FAST TRACK: Bùng nổ Giá & Vol")
-        if row['MFI'] > 55: 
-            buy_score += 3.0; reason_list.append("Dòng tiền vào mạnh")
-        if row['MFI'] < 35: 
-            sell_score += 3.0; reason_list.append("Dòng tiền rút ra")
+        
+        # 1. NHÓM CỐT LÕI 
         if row['close'] > row['SMA200']: 
-            buy_score += 2.0; reason_list.append("Giá > MA200")
+            buy_score += 2.5; reason_list.append("Giá > MA200")
         else: 
-            sell_score += 2.0; reason_list.append("Giá < MA200")
-        if row['volume'] > 1.8 * row['Vol_Avg']: 
+            sell_score += 2.5; reason_list.append("Giá < MA200")
+            
+        if row['volume'] > 1.5 * row['Vol_Avg']: 
             if row['close'] > row['open']: 
-                buy_score += 2.0; reason_list.append("Cầu mạnh (Vol đột biến)")
+                buy_score += 1.5; reason_list.append("Cầu mạnh (Vol đột biến)")
             elif row['close'] < row['open']:
-                sell_score += 2.0; reason_list.append("Bán tháo (Vol đột biến)")
+                sell_score += 1.5; reason_list.append("Bán tháo (Vol đột biến)")
             else:
                 pass
+                
+        if row['MFI'] > 50: 
+            buy_score += 2.0; reason_list.append("Dòng tiền dương")
+        if row['MFI'] < 40: 
+            sell_score += 2.0; reason_list.append("Dòng tiền yếu")
+
         # Nếu ADX > 25: Xu hướng mạnh, tin tưởng vào các chỉ báo hướng
         if row['ADX'] > 25:
             if row['Plus_DI'] > row['Minus_DI']:
@@ -149,44 +148,52 @@ def calculate_indicators(df):
         # Giá tạo đáy thấp hơn nhưng RSI tạo đáy cao hơn
         if row['Price_Min_10'] < row['Prev_Price_Min'] and row['RSI_Min_10'] > row['Prev_RSI_Min']:
             if row['RSI'] < 45: # Chỉ xét khi RSI ở vùng thấp
-                buy_score += 2.5
+                buy_score += 2.0
                 reason_list.append("Phân kỳ Dương RSI (Đảo chiều tăng)")
         # Giá tạo đỉnh cao hơn nhưng RSI tạo đỉnh thấp hơn
         if row['Price_Max_10'] > row['Prev_Price_Max'] and row['RSI_Max_10'] < row['Prev_RSI_Max']:
             if row['RSI'] > 55: # Chỉ xét khi RSI ở vùng cao
-                sell_score += 2.5
+                sell_score += 2.0
                 reason_list.append("Phân kỳ Âm RSI (Đảo chiều giảm)")
         # 2. NHÓM XÁC NHẬN 
         if row['close'] > row['SMA20'] and row['SMA20'] > row['SMA50']: 
-            buy_score += 1.0; reason_list.append("Đà tăng ngắn hạn")
+            buy_score += 1.5; reason_list.append("Đà tăng ngắn hạn")
         if row['close'] < row['SMA20']: 
-            sell_score += 1.0; reason_list.append("Gãy MA20")
+            sell_score += 1.5; reason_list.append("Gãy MA20")
+            
         cloud_top = max(row['Senkou_Span_A'], row['Senkou_Span_B'])
         cloud_bottom = min(row['Senkou_Span_A'], row['Senkou_Span_B'])
         if row['close'] > cloud_top and row['Tenkan_Sen'] > row['Kijun_Sen']: 
             buy_score += 1.5; reason_list.append("Vượt mây Ichi")
         if row['close'] < cloud_bottom or row['Tenkan_Sen'] < row['Kijun_Sen']: 
             sell_score += 1.5; reason_list.append("Thủng mây/Cắt xuống Ichi")
+        
         # 3. NHÓM BỔ TRỢ & TÌM ĐIỂM VÀO 
-        if row['RSI'] < 30: buy_score += 0.5; reason_list.append("RSI Quá bán")
-        if row['RSI'] > 70: sell_score += 0.5; reason_list.append("RSI Quá mua")
+        if row['RSI'] < 30: buy_score += 1.0; reason_list.append("RSI Quá bán")
+        if row['RSI'] > 70: sell_score += 1.0; reason_list.append("RSI Quá mua")
         if row['MACD'] > row['Signal_Line']: buy_score += 1.0; reason_list.append("MACD Cắt lên")
         if row['MACD'] < row['Signal_Line']: sell_score += 1.0; reason_list.append("MACD Cắt xuống")
         if row['close'] < row['BB_lower']: buy_score += 0.5; reason_list.append("Chạm BB dưới")
         if row['close'] > row['BB_upper']: sell_score += 0.5; reason_list.append("Chạm BB trên")
+
         # --- QUY ĐỔI RA PHẦN TRĂM VÀ LƯU LẠI ---
         buy_pct = (buy_score / max_score) * 100
         sell_pct = (sell_score / max_score) * 100
+        
         buy_pcts.append(buy_pct)
         sell_pcts.append(sell_pct)
         reasons.append(", ".join(reason_list) if reason_list else "Trung lập")
+        
         # --- BƯỚC 1: XỬ LÝ CẮT LỖ CỨNG (QUẢN TRỊ RỦI RO 2%) ---
         days_in_trade = len(trends) - (len(trends) - trends[::-1].index(-1) - 1) if 1 in trends else 0
+
         if current_trend == 1 and entry_price > 0:
             # Tính mức dừng lỗ của phiên hiện tại (Hệ số nhân ATR thường là 2 hoặc 1.5)
             current_stop = row['close'] - (2 * row['ATR'])
+            
             # Dời stoploss lên nếu giá tăng, tuyệt đối không hạ stoploss xuống
             trailing_stop = max(trailing_stop, current_stop)
+            
             # Chỉ cho phép báo Bán khi đã cầm cổ phiếu ít nhất 3 phiên (Quy tắc T+) và Giá thủng Cắt lỗ động
             if row['close'] <= trailing_stop and days_in_trade >= 3: 
                 current_trend = -1
@@ -194,6 +201,7 @@ def calculate_indicators(df):
                 trailing_stop = 0.0
                 trends.append(current_trend)
                 continue
+                
         # --- BƯỚC 2: XỬ LÝ TÍN HIỆU KỸ THUẬT ---
         if buy_pct >= 60:
             if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
@@ -204,12 +212,15 @@ def calculate_indicators(df):
             current_trend = -1
             entry_price = 0.0          # Bán chốt lời/cắt lỗ xong thì xóa vị thế
             trailing_stop = 0.0        # Xóa mức cắt lỗ động
+            
         trends.append(current_trend)
+        
     df['Trend'] = trends
     df['Buy_Pct'] = buy_pcts
     df['Sell_Pct'] = sell_pcts
     df['Reason'] = reasons
     return df
+
 # --- 4. HÀM LẤY DỮ LIỆU ---
 @st.cache_data(ttl=600)
 def get_data(symbol, tf):
@@ -232,6 +243,7 @@ timeframe = st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index
 if mode == "Phân tích chi tiết mã":
     symbol = st.sidebar.text_input("Nhập mã cổ phiếu", "HPG").upper()
     df = get_data(symbol, timeframe)
+    
     if not df.empty:
         last_row = df.iloc[-1]
         is_green = last_row['Trend'] == 1
@@ -366,7 +378,7 @@ else:
                 })
             
             bar.progress(min((i + 1) / len(TOP_MARKET), 1.0))
-            time.sleep(1.1) # Tránh bị API block
+            time.sleep(1.15) # Tránh bị API block
         df_res = pd.DataFrame(results)
         if not df_res.empty:
             # Ép kiểu số để tính toán và định dạng chính xác
