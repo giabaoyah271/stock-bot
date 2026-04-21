@@ -131,7 +131,7 @@ def calculate_indicators(df):
             if row['RSI'] < 40 or row['close'] < row['BB_mid']:
                 buy_score += 3.0
                 reason_list.append("Nến rút chân (Tín hiệu sớm)")
-        if row['volume'] > 1.7 * row['Vol_Avg']: 
+        if row['volume'] > 1.5 * row['Vol_Avg']: 
             if row['close'] > row['open']: 
                 buy_score += 2.5; reason_list.append("Cầu mạnh (Vol đột biến)")
             elif row['close'] < row['open']:
