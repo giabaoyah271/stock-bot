@@ -192,10 +192,10 @@ def calculate_indicators(df):
 
         # === KỸ THUẬT 2: Ngưỡng thích ứng theo ADX ===
         adx = row['ADX'] if not pd.isna(row['ADX']) else 0
-        if adx >= 30:       # xu hướng mạnh → nhạy hơn
+        if adx >= 27:       # xu hướng mạnh → nhạy hơn
             buy_threshold  = 55
             sell_threshold = 35
-        elif adx > 20:     # xu hướng trung bình
+        elif adx >= 21:     # xu hướng trung bình
             buy_threshold  = 60
             sell_threshold = 40
         else:               # đi ngang → lọc chặt
@@ -214,18 +214,17 @@ def calculate_indicators(df):
                 trends.append(current_trend)
                 continue
         # === BƯỚC 2: TÍN HIỆU KỸ THUẬT — KT1 + KT3 (Hysteresis + Confirmation) ===
-        if current_trend != 1:
-            # --- Đang đứng ngoài: cần xác nhận 2 phiên liên tiếp ---
-            if buy_pct >= buy_threshold:
-                pending_buy += 1
-                if pending_buy >= 2:                # KT3: xác nhận đủ 2 phiên
-                    current_trend = 1
-                    entry_bar = i                   # KT1: ghi nhận vị trí vào lệnh
-                    entry_price = row['close']
-                    trailing_stop = row['close'] - (2 * row['ATR'])
-                    pending_buy = 0
-            else:
-                pending_buy = 0                     # gián đoạn → reset đếm
+        if buy_pct >= buy_threshold:
+            pending_buy += 1
+            confirm_required = 1 if adx > 30 else 2   # ADX mạnh → vào ngay phiên đó
+            if pending_buy >= confirm_required:
+                current_trend = 1
+                entry_bar = i
+                entry_price = row['close']
+                trailing_stop = row['close'] - (2 * row['ATR'])
+                pending_buy = 0
+        else:
+            pending_buy = 0
         else:
             # --- KT1 Hysteresis: đang giữ lệnh → ngưỡng bán cao hơn, kiên nhẫn hơn ---
             pending_buy = 0
