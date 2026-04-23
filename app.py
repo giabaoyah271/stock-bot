@@ -193,14 +193,14 @@ def calculate_indicators(df):
         # === KỸ THUẬT 2: Ngưỡng thích ứng theo ADX ===
         adx = row['ADX'] if not pd.isna(row['ADX']) else 0
         if adx >= 30:       # xu hướng mạnh → nhạy hơn
-            buy_threshold  = 50
-            sell_threshold = 45
-        elif adx >= 20:     # xu hướng trung bình
+            buy_threshold  = 55
+            sell_threshold = 35
+        elif adx > 20:     # xu hướng trung bình
             buy_threshold  = 60
-            sell_threshold = 50
+            sell_threshold = 40
         else:               # đi ngang → lọc chặt
-            buy_threshold  = 70
-            sell_threshold = 60
+            buy_threshold  = 65
+            sell_threshold = 45
         # === BƯỚC 1: TRAILING STOP (giữ nguyên logic cũ, chỉ sửa days_in_trade) ===
         days_in_trade = i - entry_bar   # KT1: fix O(n²), luôn chính xác
         if current_trend == 1 and entry_price > 0:
@@ -232,7 +232,7 @@ def calculate_indicators(df):
             thoat_lenh = False
             if sell_pct >= sell_threshold:          # bán bình thường
                 thoat_lenh = True
-            elif sell_pct >= 35 and adx > 30 and row['Minus_DI'] > row['Plus_DI']:
+            elif sell_pct >= 33 and adx > 30 and row['Minus_DI'] > row['Plus_DI']:
                 thoat_lenh = True                   # thị trường đảo chiều mạnh → thoát nhanh
             if thoat_lenh:
                 current_trend = -1
