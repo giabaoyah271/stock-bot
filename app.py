@@ -105,9 +105,11 @@ def calculate_indicators(df):
     buy_pcts = []     # THÊM MỚI
     sell_pcts = []    # THÊM MỚI
     reasons = []      # THÊM MỚI
-    current_trend = -1  # Mặc định là Đỏ (Bán)
-    entry_price = 0.0   # Biến lưu giá vốn để tính cắt lỗ
-    trailing_stop = 0.0 # THÊM MỚI: Biến lưu giá cắt lỗ động
+    current_trend = -1
+    entry_price = 0.0
+    trailing_stop = 0.0
+    entry_bar = 0        # KT1: thay thế days_in_trade sai
+    pending_buy = 0      # KT3: đếm số phiên xác nhận tín hiệu mua
     for i in range(len(df)):
         row = df.iloc[i]
         # Bỏ qua giai đoạn đầu chưa đủ dữ liệu vẽ mây Ichimoku và MA200
@@ -187,40 +189,56 @@ def calculate_indicators(df):
         buy_pcts.append(buy_pct)
         sell_pcts.append(sell_pct)
         reasons.append(", ".join(reason_list) if reason_list else "Trung lập")
-        
-        # --- BƯỚC 1: XỬ LÝ CẮT LỖ CỨNG (QUẢN TRỊ RỦI RO 2%) ---
-        entry_bar = 0  # index thanh nến lúc vào lệnh
-        # Trong vòng lặp, khi chuyển sang Xanh:
-        if current_trend != 1:
-            entry_bar = i  # ghi nhận vị trí vào lệnh
-        days_in_trade = i - entry_bar  # O(1), luôn chính xác
+
+        # === KỸ THUẬT 2: Ngưỡng thích ứng theo ADX ===
+        adx = row['ADX'] if not pd.isna(row['ADX']) else 0
+        if adx >= 30:       # xu hướng mạnh → nhạy hơn
+            buy_threshold  = 50
+            sell_threshold = 45
+        elif adx >= 20:     # xu hướng trung bình
+            buy_threshold  = 60
+            sell_threshold = 50
+        else:               # đi ngang → lọc chặt
+            buy_threshold  = 70
+            sell_threshold = 60
+        # === BƯỚC 1: TRAILING STOP (giữ nguyên logic cũ, chỉ sửa days_in_trade) ===
+        days_in_trade = i - entry_bar   # KT1: fix O(n²), luôn chính xác
         if current_trend == 1 and entry_price > 0:
-            # Tính mức dừng lỗ của phiên hiện tại (Hệ số nhân ATR thường là 2 hoặc 1.5)
             current_stop = row['close'] - (2 * row['ATR'])
-            # Dời stoploss lên nếu giá tăng, tuyệt đối không hạ stoploss xuống
             trailing_stop = max(trailing_stop, current_stop)
-            
-            # Chỉ cho phép báo Bán khi đã cầm cổ phiếu ít nhất 3 phiên (Quy tắc T+) và Giá thủng Cắt lỗ động
-            if row['close'] <= trailing_stop and days_in_trade >= 3: 
+            if row['close'] <= trailing_stop and days_in_trade >= 3:
                 current_trend = -1
                 entry_price = 0.0
                 trailing_stop = 0.0
+                pending_buy = 0         # reset khi bị cắt lỗ
                 trends.append(current_trend)
                 continue
-                
-        # --- BƯỚC 2: XỬ LÝ TÍN HIỆU KỸ THUẬT ---
-        if buy_pct >= 60:
-            if current_trend != 1:     # Nếu phiên trước đang Đỏ, phiên này chuyển Xanh
-                entry_price = row['close'] # Ghi nhận giá lúc báo Mua
-                trailing_stop = row['close'] - (2 * row['ATR']) # Thiết lập giá cắt lỗ động ban đầu
-            current_trend = 1
-        elif sell_pct >= 30:
-            current_trend = -1
-            entry_price = 0.0          # Bán chốt lời/cắt lỗ xong thì xóa vị thế
-            trailing_stop = 0.0        # Xóa mức cắt lỗ động
-            
-        trends.append(current_trend)
-        
+        # === BƯỚC 2: TÍN HIỆU KỸ THUẬT — KT1 + KT3 (Hysteresis + Confirmation) ===
+        if current_trend != 1:
+            # --- Đang đứng ngoài: cần xác nhận 2 phiên liên tiếp ---
+            if buy_pct >= buy_threshold:
+                pending_buy += 1
+                if pending_buy >= 2:                # KT3: xác nhận đủ 2 phiên
+                    current_trend = 1
+                    entry_bar = i                   # KT1: ghi nhận vị trí vào lệnh
+                    entry_price = row['close']
+                    trailing_stop = row['close'] - (2 * row['ATR'])
+                    pending_buy = 0
+            else:
+                pending_buy = 0                     # gián đoạn → reset đếm
+        else:
+            # --- KT1 Hysteresis: đang giữ lệnh → ngưỡng bán cao hơn, kiên nhẫn hơn ---
+            pending_buy = 0
+            thoat_lenh = False
+            if sell_pct >= sell_threshold:          # bán bình thường
+                thoat_lenh = True
+            elif sell_pct >= 35 and adx > 30 and row['Minus_DI'] > row['Plus_DI']:
+                thoat_lenh = True                   # thị trường đảo chiều mạnh → thoát nhanh
+            if thoat_lenh:
+                current_trend = -1
+                entry_price = 0.0
+                trailing_stop = 0.0
+        trends.append(current_trend)        
     df['Trend'] = trends
     df['Buy_Pct'] = buy_pcts
     df['Sell_Pct'] = sell_pcts
