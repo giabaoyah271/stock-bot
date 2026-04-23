@@ -254,9 +254,6 @@ if mode == "Phân tích chi tiết mã":
         last_row = df.iloc[-1]
         is_green = last_row['Trend'] == 1
         
-        st.markdown(f"<h1 style='text-align: center; color: #800080; font-size: 60px; margin-bottom:0px;'>{symbol}</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-weight: bold;'>QUY TẮC GIAO DỊCH: <span style='color:#00ff00'>XANH VÀO</span> - <span style='color:#ff0000'>ĐỎ RA</span></p>", unsafe_allow_html=True)
-
         # Tìm điểm giao cắt tín hiệu gần nhất
         change = df[df['Trend'] != df['Trend'].shift(1)]
         entry_date = change[change['Trend'] == df['Trend'].iloc[-1]].index[-1] if not change.empty else df.index[0]
