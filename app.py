@@ -239,7 +239,7 @@ def calculate_indicators(df):
                 current_trend = -1
                 entry_price = 0.0
                 trailing_stop = 0.0
-trends.append(current_trend)        
+        trends.append(current_trend)        
     df['Trend'] = trends
     df['Buy_Pct'] = buy_pcts
     df['Sell_Pct'] = sell_pcts
