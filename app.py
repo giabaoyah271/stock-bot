@@ -217,14 +217,14 @@ def calculate_indicators(df):
         if current_trend != 1:
             # --- Đang đứng ngoài: cần xác nhận 2 phiên liên tiếp ---
             if buy_pct >= buy_threshold:
-            pending_buy += 1
-            confirm_required = 1 if adx >= 30 else 2   # ADX mạnh → vào ngay phiên đó
-            if pending_buy >= confirm_required:
-                current_trend = 1
-                entry_bar = i
-                entry_price = row['close']
-                trailing_stop = row['close'] - (2 * row['ATR'])
-                pending_buy = 0
+                pending_buy += 1
+                confirm_required = 1 if adx >= 30 else 2   # ADX mạnh → vào ngay phiên đó
+                if pending_buy >= confirm_required:
+                        current_trend = 1
+                        entry_bar = i
+                        entry_price = row['close']
+                        trailing_stop = row['close'] - (2 * row['ATR'])
+                        pending_buy = 0
             else:
                 pending_buy = 0                     # gián đoạn → reset đếm
         else:
