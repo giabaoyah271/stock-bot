@@ -189,12 +189,14 @@ def calculate_indicators(df):
         reasons.append(", ".join(reason_list) if reason_list else "Trung lập")
         
         # --- BƯỚC 1: XỬ LÝ CẮT LỖ CỨNG (QUẢN TRỊ RỦI RO 2%) ---
-        days_in_trade = len(trends) - (len(trends) - trends[::-1].index(-1) - 1) if 1 in trends else 0
-
+        entry_bar = 0  # index thanh nến lúc vào lệnh
+        # Trong vòng lặp, khi chuyển sang Xanh:
+        if current_trend != 1:
+            entry_bar = i  # ghi nhận vị trí vào lệnh
+        days_in_trade = i - entry_bar  # O(1), luôn chính xác
         if current_trend == 1 and entry_price > 0:
             # Tính mức dừng lỗ của phiên hiện tại (Hệ số nhân ATR thường là 2 hoặc 1.5)
             current_stop = row['close'] - (2 * row['ATR'])
-            
             # Dời stoploss lên nếu giá tăng, tuyệt đối không hạ stoploss xuống
             trailing_stop = max(trailing_stop, current_stop)
             
