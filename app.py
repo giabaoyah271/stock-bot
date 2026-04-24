@@ -86,8 +86,8 @@ def calculate_indicators(df):
     true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     df['ATR'] = true_range.rolling(window=14).mean()
 
-    plus_dm = df['high'].diff()
-    minus_dm = df['low'].diff() * -1
+    plus_dm = df['high'].diff().clip(lower=0)
+    minus_dm = (df['low'].diff() * -1).clip(lower=0)
     # Chỉ giữ lại giá trị dương, nếu âm thì bằng 0
     plus_dm[plus_dm < 0] = 0
     minus_dm[minus_dm < 0] = 0
