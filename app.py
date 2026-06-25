@@ -20,11 +20,11 @@ def get_top_100_liquidity():
             'NKG', 'GVR', 'FPT', 'MWG', 'MSN', 'VIC', 'VHM', 'VCB', 'BID', 'CTG',
             'LPB', 'HDB', 'TPB', 'MSB', 'OCB', 'EIB', 'VIB', 'DGC', 'DPM', 'DCM',
             'PVD', 'PVS', 'PVT', 'BSR', 'GAS', 'PLX', 'POW', 'VRE', 'GMD', 'HAH',
-            'VJC', 'HVN', 'REE', 'PC1', 'VCG', 'HHV', 'LCG', 'EVF', 'FCN', 'CII',
+            'VJC', 'VPX', 'REE', 'MCH', 'VCG', 'HHV', 'LCG', 'VCK', 'FCN', 'CII',
             'KBC', 'SZC', 'IDC', 'GEX', 'VNM', 'FRT', 'FTS', 'NLG', 'DGW', 'BAF',
             'VPI', 'CTD', 'SAB', 'PNJ', 'DBC', 'PAN', 'ANV', 'VGC', 'VHC', 'GEG',
             'NT2', 'HDC', 'TV2', 'CSV', 'BFC', 'LAS', 'PHR', 'DPR', 'TCH', 'MSH',
-            'TCM', 'CTS', 'GEE', 'KDH', 'BSI', 'HUT', 'TNG', 'VGS', 'MBS', 'AGR', 'BVH', 'SSB' 
+            'TCM', 'CTS', 'GEE', 'KDH', 'BSI', 'HUT', 'TNG', 'VGS', 'MBS', 'AGR', 'BVH', 'SSB'
         ]
 
 TOP_MARKET = get_top_100_liquidity()
