@@ -24,7 +24,7 @@ def get_top_100_liquidity():
             'KBC', 'SZC', 'IDC', 'GEX', 'VNM', 'FRT', 'FTS', 'NLG', 'DGW', 'BAF',
             'VPI', 'CTD', 'SAB', 'PNJ', 'DBC', 'PAN', 'ANV', 'VGC', 'VHC', 'GEG',
             'NT2', 'HDC', 'TV2', 'CSV', 'BFC', 'LAS', 'PHR', 'DPR', 'TCH', 'MSH',
-            'TCM', 'CTS', 'GEE', 'KDH', 'BSI', 'HUT', 'TNG', 'VGS', 'MBS', 'AGR', 'BVH', 'SSB'
+            'TCM', 'CTS', 'GEE', 'KDH', 'BSI', 'HUT', 'TNG', 'VGS', 'MBS', 'AGR', 'BVH', 'SSB', 'PC1'
         ]
 
 TOP_MARKET = get_top_100_liquidity()
