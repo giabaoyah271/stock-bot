@@ -257,7 +257,9 @@ def get_data(symbol, tf):
                 df['time'] = pd.to_datetime(df['time'])
                 df.set_index('time', inplace=True)
                 return calculate_indicators(df)
-        except: continue
+                except Exception as e:
+            st.warning(f"Nguồn {src} gặp lỗi: {type(e).__name__}")
+            continue
     return pd.DataFrame()
 
 # --- 5. GIAO DIỆN CHÍNH ---
