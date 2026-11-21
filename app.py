@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from vnstock import Vnstock
+from vnstock import Market
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -249,10 +249,10 @@ def calculate_indicators(df):
 # --- 4. HÀM LẤY DỮ LIỆU ---
 @st.cache_data(ttl=600)
 def get_data(symbol, tf):
-    for src in ['TCBS','VCI', 'DNSE', 'KBS']:
+    for src in ['dnse', 'fhsc', 'ssi', 'tcbs']:
         try:
-            stock = Vnstock().stock(symbol=symbol, source=src)
-            df = stock.quote.history(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
+            stock = Market(src).equity(symbol)
+            df = stock.ohlcv(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
             if df is not None and not df.empty:
                 df['time'] = pd.to_datetime(df['time'])
                 df.set_index('time', inplace=True)
