@@ -68,10 +68,29 @@ def calculate_indicators(df):
     df['upper_shadow'] = df['high'] - df[['open', 'close']].max(axis=1)
     # Định nghĩa nến rút chân tăng (Bullish Pin Bar): Bóng dưới dài gấp ít nhất 2 lần thân nến
     df['is_bullish_pinbar'] = (df['lower_shadow'] > 2 * df['body']) & (df['lower_shadow'] > df['upper_shadow'])
+    # RSI (14) - Phuong phap Wilder
     delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    df['RSI'] = 100 - (100 / (1 + gain / (loss + 1e-9)))
+    gains = delta.clip(lower=0).to_numpy(dtype=float)
+    losses = (-delta.clip(upper=0)).to_numpy(dtype=float)
+
+    avg_gains = np.full(len(df), np.nan)
+    avg_losses = np.full(len(df), np.nan)
+
+    avg_gains[14] = gains[1:15].mean()
+    avg_losses[14] = losses[1:15].mean()
+
+    for i in range(15, len(df)):
+        avg_gains[i] = (avg_gains[i - 1] * 13 + gains[i]) / 14
+        avg_losses[i] = (avg_losses[i - 1] * 13 + losses[i]) / 14
+
+    total = avg_gains + avg_losses
+    rsi = np.full(len(df), np.nan)
+
+    valid = total > 0
+    rsi[valid] = 100 * avg_gains[valid] / total[valid]
+    rsi[total == 0] = 50
+
+    df['RSI'] = rsi
     df['Price_Min_10'] = df['low'].rolling(window=10).min()
     df['Price_Max_10'] = df['high'].rolling(window=10).max()
     df['RSI_Min_10'] = df['RSI'].rolling(window=10).min()
