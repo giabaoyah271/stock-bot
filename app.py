@@ -426,7 +426,7 @@ if mode == "Phân tích chi tiết mã":
 
             events = df.loc[
                 changed,
-                ["close", "Trend", "Buy_Pct", "Sell_Pct"]
+                ["close", "Trend", "Buy_Pct", "Sell_Pct", "Reason"]
             ].copy()
 
             events["Tín hiệu"] = events["Trend"].map({
@@ -439,7 +439,7 @@ if mode == "Phân tích chi tiết mã":
             else:
                 st.dataframe(
                     events[
-                        ["Tín hiệu", "close", "Buy_Pct", "Sell_Pct"]
+                        ["Tín hiệu", "close", "Buy_Pct", "Sell_Pct", "Reason"]
                     ].tail(20).iloc[::-1].round(2),
                     use_container_width=True
                 )
