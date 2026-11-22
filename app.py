@@ -127,7 +127,18 @@ def calculate_indicators(df):
     high_close = np.abs(df['high'] - df['close'].shift(1))
     low_close = np.abs(df['low'] - df['close'].shift(1))
     true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-    df['ATR'] = true_range.rolling(window=14).mean()
+    # ATR (14) - Phuong phap Wilder
+    tr_values = true_range.to_numpy(dtype=float)
+    atr_values = np.full(len(tr_values), np.nan)
+
+    atr_values[13] = tr_values[:14].mean()
+
+    for i in range(14, len(tr_values)):
+        atr_values[i] = (
+            atr_values[i - 1] * 13 + tr_values[i]
+        ) / 14
+
+    df['ATR'] = atr_values
 
     plus_dm = df['high'].diff().clip(lower=0)
     minus_dm = (df['low'].diff() * -1).clip(lower=0)
