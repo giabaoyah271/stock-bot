@@ -415,6 +415,33 @@ if mode == "Phân tích chi tiết mã":
                 history.round(2),
                 use_container_width=True
             )
+            # Lich su chuyen trang thai
+            st.markdown("**Các lần thay đổi tín hiệu gần nhất**")
+
+            changed = (
+                df["Trend"].ne(df["Trend"].shift())
+                & df["Trend"].shift().notna()
+            )
+
+            events = df.loc[
+                changed,
+                ["close", "Trend", "Buy_Pct", "Sell_Pct"]
+            ].copy()
+
+            events["Tín hiệu"] = events["Trend"].map({
+                1: "Chuyển sang vùng xanh",
+                -1: "Chuyển sang vùng đỏ"
+            })
+
+            if events.empty:
+                st.info("Chưa có lần thay đổi tín hiệu.")
+            else:
+                st.dataframe(
+                    events[
+                        ["Tín hiệu", "close", "Buy_Pct", "Sell_Pct"]
+                    ].tail(20).iloc[::-1].round(2),
+                    use_container_width=True
+                )
         # --- KIEM TRA CHAT LUONG DU LIEU ---
         with st.expander("Kiểm tra chất lượng dữ liệu TCBS"):
             cols = ["open", "high", "low", "close", "volume"]
