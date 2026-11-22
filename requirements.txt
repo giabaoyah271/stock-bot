@@ -5,3 +5,4 @@ vnstock
 plotly
 numpy
 ipython
+vnstock-oapi>=0.1.0,<1
