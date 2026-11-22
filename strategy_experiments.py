@@ -63,7 +63,7 @@ def chay_backtest_thu_nghiem(df, bo_loc="sma"):
     """
     from backtesting import tao_bang_giao_dich
 
-    modes = {"goc", "sma", "adx_macd"}
+    modes = {"goc", "sma", "adx_macd", "macd"}
     if bo_loc not in modes:
         raise ValueError("Bo loc khong hop le.")
 
@@ -75,7 +75,7 @@ def chay_backtest_thu_nghiem(df, bo_loc="sma"):
 
     if bo_loc == "sma":
         required.add("SMA50")
-    elif bo_loc == "adx_macd":
+    elif bo_loc in {"adx_macd", "macd"}:
         required.update({"MACD", "Signal_Line"})
 
     missing = required - set(df.columns)
@@ -146,6 +146,13 @@ def chay_backtest_thu_nghiem(df, bo_loc="sma"):
                 eligible = (
                     adx >= 25
                     and row["Plus_DI"] > row["Minus_DI"]
+                    and row["MACD"] > row["Signal_Line"]
+                )
+
+            elif bo_loc == "macd":
+                eligible = (
+                    pd.notna(row["MACD"])
+                    and pd.notna(row["Signal_Line"])
                     and row["MACD"] > row["Signal_Line"]
                 )
 
