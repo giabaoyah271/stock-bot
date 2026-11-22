@@ -273,7 +273,7 @@ def calculate_indicators(df):
 # --- 4. HÀM LẤY DỮ LIỆU ---
 @st.cache_data(ttl=600)
 def get_data(symbol, tf):
-    for src in ['dnse', 'fhsc', 'ssi', 'tcbs']:
+    for src in ['tcbs']:
         try:
             stock = Market(src).equity(symbol)
             df = stock.ohlcv(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
