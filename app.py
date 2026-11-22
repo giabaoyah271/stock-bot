@@ -438,7 +438,7 @@ if mode == "Phân tích chi tiết mã":
         action_text = "MUA" if is_green else "BÁN"
         color_action = "green" if is_green else "red"
         color_profit = "green" if profit >= 0 else "red"
-        status_text = "Đã Lãi" if profit >= 0 else "Đang Lỗ"
+        status_text = "Biến động từ tín hiệu:"
         rec_text = "Vùng Xanh, Tiếp tục nắm giữ" if is_green else "Vùng Đỏ, Đứng ngoài quan sát"
         rec_color = "green" if is_green else "red"
 
