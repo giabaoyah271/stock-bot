@@ -394,6 +394,47 @@ if mode == "Phân tích chi tiết mã":
                 "Hãy kiểm tra kết nối TCBS và lịch nghỉ giao dịch."
             )
         is_green = last_row['Trend'] == 1
+        
+        # SO SANH DIEM V1 VA V2
+        with st.expander("So sánh điểm mua/bán V1 và V2"):
+            try:
+                from scoring_v2 import tinh_diem_v2
+
+                df_v2 = tinh_diem_v2(df)
+
+                so_sanh = df_v2[
+                    [
+                        "Buy_Pct",
+                        "Sell_Pct",
+                        "V2_Buy_Pct",
+                        "V2_Sell_Pct",
+                        "V2_Ready"
+                    ]
+                ].tail(10).copy()
+
+                so_sanh = so_sanh.rename(columns={
+                    "Buy_Pct": "Điểm mua V1",
+                    "Sell_Pct": "Điểm bán V1",
+                    "V2_Buy_Pct": "Điểm mua V2",
+                    "V2_Sell_Pct": "Điểm bán V2",
+                    "V2_Ready": "Đủ dữ liệu V2"
+                })
+
+                st.dataframe(
+                    so_sanh.round(2),
+                    use_container_width=True
+                )
+
+                st.caption(
+                    "V2 chỉ đang thử nghiệm cách chấm điểm. "
+                    "Chưa thay đổi tín hiệu giao dịch hiện tại."
+                )
+
+            except Exception as e:
+                st.warning(
+                    f"Chưa thể tính điểm V2: {type(e).__name__}"
+                )
+
         # Lich su danh gia tin hieu
         with st.expander("Lịch sử tín hiệu 30 nến gần nhất"):
             columns = [
