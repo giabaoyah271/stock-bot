@@ -301,6 +301,17 @@ if mode == "Phân tích chi tiết mã":
             f"Phiên dữ liệu cuối: {df.index[-1].strftime('%d/%m/%Y')}"
             " | Dữ liệu lịch sử, không phải giá thời gian thực"
         )
+        latest_date = pd.Timestamp(df.index[-1]).date()
+        today_vn = pd.Timestamp.now(tz="Asia/Ho_Chi_Minh").date()
+        days_old = (today_vn - latest_date).days
+
+        if days_old < 0:
+            st.error("Ngày dữ liệu không hợp lệ: nằm trong tương lai.")
+        elif days_old > 5:
+            st.warning(
+                f"Dữ liệu cách hôm nay {days_old} ngày. "
+                "Hãy kiểm tra kết nối TCBS và lịch nghỉ giao dịch."
+            )
         is_green = last_row['Trend'] == 1
         
         # Tìm điểm giao cắt tín hiệu gần nhất
