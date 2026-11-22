@@ -313,6 +313,31 @@ if mode == "Phân tích chi tiết mã":
                 "Hãy kiểm tra kết nối TCBS và lịch nghỉ giao dịch."
             )
         is_green = last_row['Trend'] == 1
+        # --- KIEM TRA CHAT LUONG DU LIEU ---
+        with st.expander("Kiểm tra chất lượng dữ liệu TCBS"):
+            cols = ["open", "high", "low", "close", "volume"]
+            data = df[cols].apply(pd.to_numeric, errors="coerce")
+
+            missing = int(data.isna().any(axis=1).sum())
+            duplicates = int(df.index.duplicated().sum())
+
+            invalid_prices = (
+                (data["low"] > data["high"])
+                | (data["high"] < data[["open", "close"]].max(axis=1))
+                | (data["low"] > data[["open", "close"]].min(axis=1))
+                | (data[["open", "high", "low", "close"]] <= 0).any(axis=1)
+            )
+
+            invalid_volume = int((data["volume"] < 0).sum())
+
+            st.write(f"Tổng số nến: {len(df):,}")
+            st.write(f"Nến thiếu dữ liệu: {missing}")
+            st.write(f"Thời gian trùng lặp: {duplicates}")
+            st.write(f"Nến có giá bất hợp lý: {int(invalid_prices.sum())}")
+            st.write(f"Nến có khối lượng âm: {invalid_volume}")
+
+            st.write("5 nến gần nhất:")
+            st.dataframe(data.tail(5), use_container_width=True)
         
         # Tìm điểm giao cắt tín hiệu gần nhất
         change = df[df['Trend'] != df['Trend'].shift(1)]
