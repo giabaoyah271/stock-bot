@@ -475,6 +475,83 @@ if mode == "Phân tích chi tiết mã":
                                 "Kiểm tra thành công: "
                                 "Backtesting gốc và bản thử nghiệm khớp nhau."
                             )
+                        
+                            # SO SANH 3 CHIEN LUOC DOC LAP
+                            st.markdown(
+                                "**So sánh Backtesting 3 chiến lược**"
+                            )
+
+                            ket_qua = []
+
+                            for ten, bt in [
+                                ("Chiến lược gốc", trades),
+                                ("Lọc SMA50/SMA200",
+                                 chay_backtest_thu_nghiem(df, "sma")),
+                                ("Lọc ADX + DI + MACD",
+                                 chay_backtest_thu_nghiem(df, "adx_macd"))
+                            ]:
+                                r = pd.to_numeric(
+                                    bt["Lợi nhuận sau chi phí (%)"],
+                                    errors="coerce"
+                                ).dropna()
+
+                                if r.empty:
+                                    ket_qua.append({
+                                        "Chiến lược": ten,
+                                        "Số lệnh": 0,
+                                        "Win Rate (%)": None,
+                                        "Lợi nhuận TB (%)": None,
+                                        "Profit Factor": None,
+                                        "Sụt giảm vốn (%)": None
+                                    })
+                                    continue
+
+                                tong_lai = r[r > 0].sum()
+                                tong_lo = -r[r < 0].sum()
+
+                                pf = (
+                                    tong_lai / tong_lo
+                                    if tong_lo > 0 else None
+                                )
+
+                                von = pd.concat(
+                                    [
+                                        pd.Series([1.0]),
+                                        (1 + r / 100).cumprod()
+                                        .reset_index(drop=True)
+                                    ],
+                                    ignore_index=True
+                                )
+
+                                dd = (
+                                    von / von.cummax() - 1
+                                ).min() * 100
+
+                                ket_qua.append({
+                                    "Chiến lược": ten,
+                                    "Số lệnh": len(r),
+                                    "Win Rate (%)": round(
+                                        (r > 0).mean() * 100, 1
+                                    ),
+                                    "Lợi nhuận TB (%)": round(r.mean(), 2),
+                                    "Profit Factor": (
+                                        round(pf, 2)
+                                        if pf is not None else None
+                                    ),
+                                    "Sụt giảm vốn (%)": round(dd, 2)
+                                })
+
+                            st.dataframe(
+                                pd.DataFrame(ket_qua),
+                                hide_index=True,
+                                use_container_width=True
+                            )
+
+                            st.caption(
+                                "Backtesting thử nghiệm trên cùng dữ liệu. "
+                                "Sụt giảm vốn chỉ tính sau các lệnh đã đóng. "
+                                "Chưa kiểm định ngoài mẫu."
+                            )
                         else:
                             st.warning(
                                 "Hai phiên bản chưa khớp. "
