@@ -515,6 +515,78 @@ if mode == "Phân tích chi tiết mã":
 
                         st.markdown("**Đường cong vốn mô phỏng**")
                         st.line_chart(equity_chart)
+                        # SO SANH BO LOC XU HUONG
+                        from strategy_experiments import danh_gia_bo_loc_xu_huong
+
+                        filtered = danh_gia_bo_loc_xu_huong(df, trades)
+                        selected = filtered[
+                            filtered["Đạt bộ lọc xu hướng"]
+                        ]
+
+                        st.markdown("**So sánh bộ lọc xu hướng SMA50/SMA200**")
+
+                        comparisons = []
+
+                        for name, group in [
+                            ("Chiến lược gốc", trades),
+                            ("Giao dịch đạt bộ lọc", selected)
+                        ]:
+                            r = pd.to_numeric(
+                                group["Lợi nhuận sau chi phí (%)"],
+                                errors="coerce"
+                            ).dropna()
+
+                            if r.empty:
+                                comparisons.append({
+                                    "Phương án": name,
+                                    "Số giao dịch": 0,
+                                    "Win Rate (%)": None,
+                                    "Lợi nhuận TB (%)": None,
+                                    "Profit Factor": None,
+                                    "Sụt giảm vốn (%)": None
+                                })
+                                continue
+
+                            total_win = r[r > 0].sum()
+                            total_loss = -r[r < 0].sum()
+
+                            pf = (
+                                total_win / total_loss
+                                if total_loss > 0 else None
+                            )
+
+                            growth_test = (1 + r / 100).cumprod()
+                            capital = pd.concat(
+                                [
+                                    pd.Series([1.0]),
+                                    growth_test.reset_index(drop=True)
+                                ],
+                                ignore_index=True
+                            )
+                            dd = (capital / capital.cummax() - 1).min() * 100
+
+                            comparisons.append({
+                                "Phương án": name,
+                                "Số giao dịch": len(r),
+                                "Win Rate (%)": round((r > 0).mean() * 100, 1),
+                                "Lợi nhuận TB (%)": round(r.mean(), 2),
+                                "Profit Factor": (
+                                    round(pf, 2) if pf is not None else None
+                                ),
+                                "Sụt giảm vốn (%)": round(dd, 2)
+                            })
+
+                        st.dataframe(
+                            pd.DataFrame(comparisons),
+                            hide_index=True,
+                            use_container_width=True
+                        )
+
+                        st.caption(
+                            "Thử nghiệm sàng lọc các giao dịch đã đóng. "
+                            "Chưa phải Backtesting độc lập của chiến lược mới."
+                        )
+
 
                         st.caption(
                             "Vốn ban đầu quy ước bằng 100. "
