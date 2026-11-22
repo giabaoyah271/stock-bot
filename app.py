@@ -476,6 +476,32 @@ if mode == "Phân tích chi tiết mã":
                             "Lợi nhuận trung bình mỗi giao dịch",
                             f"{avg_return:.2f}%"
                         )
+                        
+                        # Profit Factor
+                        total_win = returns[returns > 0].sum()
+                        total_loss = -returns[returns < 0].sum()
+
+                        if total_loss > 0:
+                            profit_factor = total_win / total_loss
+                            pf_text = f"{profit_factor:.2f}"
+                        else:
+                            pf_text = "Không có lệnh lỗ"
+
+                        # Muc sut giam von sau cac lenh da dong
+                        growth = (1 + returns / 100).cumprod()
+                        equity = pd.concat(
+                            [pd.Series([1.0]), growth.reset_index(drop=True)],
+                            ignore_index=True
+                        )
+
+                        drawdown = (equity / equity.cummax() - 1) * 100
+
+                        col_pf, col_dd = st.columns(2)
+                        col_pf.metric("Profit Factor", pf_text)
+                        col_dd.metric(
+                            "Sụt giảm vốn sau các lệnh đã đóng",
+                            f"{drawdown.min():.2f}%"
+                        )
 
                     st.caption(
                         "Mô phỏng khớp lệnh ở giá mở cửa phiên tiếp theo. "
