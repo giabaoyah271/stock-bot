@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
 import time
+from backtesting import tao_bang_giao_dich
 
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(page_title="Hệ thống Giao dịch Xanh-Đỏ", layout="wide")
@@ -443,6 +444,31 @@ if mode == "Phân tích chi tiết mã":
                     ].tail(20).iloc[::-1].round(2),
                     use_container_width=True
                 )
+        # --- BACKTESTING THU NGHIEM ---
+        if timeframe == "Ngày":
+            with st.expander("Backtesting - Giao dịch mô phỏng"):
+                try:
+                    trades = tao_bang_giao_dich(df)
+
+                    if trades.empty:
+                        st.info("Chưa có giao dịch hoàn tất.")
+                    else:
+                        st.write(f"Số giao dịch: {len(trades)}")
+                        st.dataframe(
+                            trades.iloc[::-1],
+                            use_container_width=True
+                        )
+
+                    st.caption(
+                        "Mô phỏng khớp lệnh ở giá mở cửa phiên tiếp theo. "
+                        "Đã tính chi phí giả định. "
+                        "Chưa phản ánh đầy đủ giao dịch thực tế."
+                    )
+
+                except Exception as e:
+                    st.error(
+                        f"Lỗi Backtesting: {type(e).__name__}"
+                    )
         # --- KIEM TRA CHAT LUONG DU LIEU ---
         with st.expander("Kiểm tra chất lượng dữ liệu TCBS"):
             cols = ["open", "high", "low", "close", "volume"]
