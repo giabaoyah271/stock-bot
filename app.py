@@ -494,6 +494,7 @@ if mode == "Phân tích chi tiết mã":
                     # Kiem tra Backtesting goc va ban thu nghiem
                     try:
                         from strategy_experiments import chay_backtest_thu_nghiem
+                        from strategy_experiments import chay_backtest_diem_v2
 
                         thu_goc = chay_backtest_thu_nghiem(
                             df, bo_loc="goc"
@@ -529,7 +530,9 @@ if mode == "Phân tích chi tiết mã":
                                 ("Lọc SMA50/SMA200",
                                  chay_backtest_thu_nghiem(df, "sma")),
                                 ("Lọc ADX + DI + MACD",
-                                 chay_backtest_thu_nghiem(df, "adx_macd"))
+                                 chay_backtest_thu_nghiem(df, "adx_macd")),
+                                ("Chấm điểm V2",
+                                 chay_backtest_diem_v2(df))
                             ]:
                                 r = pd.to_numeric(
                                     bt["Lợi nhuận sau chi phí (%)"],
