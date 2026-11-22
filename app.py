@@ -502,6 +502,26 @@ if mode == "Phân tích chi tiết mã":
                             "Sụt giảm vốn sau các lệnh đã đóng",
                             f"{drawdown.min():.2f}%"
                         )
+                        
+                        # Bieu do tang truong von mo phong
+                        equity_chart = pd.DataFrame(
+                            {
+                                "Vốn mô phỏng": equity.to_numpy() * 100
+                            },
+                            index=range(len(equity))
+                        )
+
+                        equity_chart.index.name = "Số giao dịch đã đóng"
+
+                        st.markdown("**Đường cong vốn mô phỏng**")
+                        st.line_chart(equity_chart)
+
+                        st.caption(
+                            "Vốn ban đầu quy ước bằng 100. "
+                            "Giả định tái đầu tư toàn bộ vốn sau mỗi giao dịch. "
+                            "Chỉ phản ánh các giao dịch đã đóng, "
+                            "chưa bao gồm biến động vốn trong lúc nắm giữ."
+                        )
 
                     st.caption(
                         "Mô phỏng khớp lệnh ở giá mở cửa phiên tiếp theo. "
