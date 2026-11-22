@@ -495,6 +495,7 @@ if mode == "Phân tích chi tiết mã":
                     try:
                         from strategy_experiments import chay_backtest_thu_nghiem
                         from strategy_experiments import chay_backtest_diem_v2
+                        from v21_macd_strategy import chay_backtest_diem_v21_macd
 
                         thu_goc = chay_backtest_thu_nghiem(
                             df, bo_loc="goc"
@@ -576,9 +577,9 @@ if mode == "Phân tích chi tiết mã":
                                         f"{type(e).__name__}: {e}"
                                     )
 
-                            # SO SANH 4 CHIEN LUOC DOC LAP
+                            # SO SANH 5 CHIEN LUOC DOC LAP
                             st.markdown(
-                                "**So sánh Backtesting 4 chiến lược**"
+                                "**So sánh Backtesting 5 chiến lược**"
                             )
 
                             ket_qua = []
@@ -590,7 +591,9 @@ if mode == "Phân tích chi tiết mã":
                                 ("Lọc ADX + DI + MACD",
                                  chay_backtest_thu_nghiem(df, "adx_macd")),
                                 ("Chấm điểm V2",
-                                 chay_backtest_diem_v2(df))
+                                 chay_backtest_diem_v2(df)),
+                                ("V2.1 - Xác nhận MACD",
+                                 chay_backtest_diem_v21_macd(df))
                             ]:
                                 r = pd.to_numeric(
                                     bt["Lợi nhuận sau chi phí (%)"],
