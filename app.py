@@ -297,6 +297,10 @@ if mode == "Phân tích chi tiết mã":
     
     if not df.empty:
         last_row = df.iloc[-1]
+        st.caption(
+            f"Phiên dữ liệu cuối: {df.index[-1].strftime('%d/%m/%Y')}"
+            " | Dữ liệu lịch sử, không phải giá thời gian thực"
+        )
         is_green = last_row['Trend'] == 1
         
         # Tìm điểm giao cắt tín hiệu gần nhất
