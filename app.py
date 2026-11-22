@@ -314,6 +314,7 @@ def calculate_indicators(df):
                 entry_price = 0.0
                 trailing_stop = 0.0
                 pending_buy = 0         # reset khi bị cắt lỗ
+                reasons[-1] = "Thoát do Trailing Stop (ATR). " + reasons[-1]
                 trends.append(current_trend)
                 continue
         # === BƯỚC 2: TÍN HIỆU KỸ THUẬT — KT1 + KT3 (Hysteresis + Confirmation) ===
