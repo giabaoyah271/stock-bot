@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from vnstock import Market
+from vnstock import Market, sources
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -10,6 +10,30 @@ import time
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(page_title="Hệ thống Giao dịch Xanh-Đỏ", layout="wide")
 TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
+# --- XAC THUC TCBS ---
+with st.sidebar.expander("Kết nối TCBS", expanded=True):
+    with st.form("tcbs_auth_form", clear_on_submit=True):
+        tcbs_otp = st.text_input(
+            "Smart OTP TCBS",
+            type="password"
+        )
+        tcbs_submit = st.form_submit_button("Xác thực TCBS")
+
+    if tcbs_submit:
+        if not tcbs_otp.strip():
+            st.warning("Vui lòng nhập Smart OTP.")
+        else:
+            try:
+                sources.authenticate(
+                    "tcbs",
+                    otp=tcbs_otp.strip()
+                )
+                st.cache_data.clear()
+                st.success("Đã xác thực TCBS thành công!")
+            except Exception as e:
+                st.error(
+                    f"Xác thực thất bại: {type(e).__name__}"
+                )
 
 # --- 2. HÀM LẤY TOP 100 THANH KHOẢN ---
 @st.cache_data(ttl=3600)
