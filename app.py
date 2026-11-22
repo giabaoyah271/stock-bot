@@ -140,19 +140,68 @@ def calculate_indicators(df):
 
     df['ATR'] = atr_values
 
-    plus_dm = df['high'].diff().clip(lower=0)
-    minus_dm = (df['low'].diff() * -1).clip(lower=0)
-    # Chỉ giữ lại giá trị dương, nếu âm thì bằng 0
-    plus_dm[plus_dm < 0] = 0
-    minus_dm[minus_dm < 0] = 0
-    # Làm mượt (Wilder's Smoothing tương đương rolling sum)
-    tr_sum = true_range.rolling(window=14).sum()
-    plus_di = 100 * (plus_dm.rolling(window=14).sum() / tr_sum)
-    minus_di = 100 * (minus_dm.rolling(window=14).sum() / tr_sum)
-    dx = 100 * (np.abs(plus_di - minus_di) / (plus_di + minus_di + 1e-9))
-    df['ADX'] = dx.rolling(window=14).mean()
+    
+    # ADX (14), Plus_DI, Minus_DI - Wilder
+    up_move = df['high'].diff().to_numpy(dtype=float)
+    down_move = (-df['low'].diff()).to_numpy(dtype=float)
+
+    plus_dm = np.where(
+        (up_move > down_move) & (up_move > 0),
+        up_move, 0.0
+    )
+    minus_dm = np.where(
+        (down_move > up_move) & (down_move > 0),
+        down_move, 0.0
+    )
+
+    n = len(df)
+    tr_smooth = np.full(n, np.nan)
+    plus_smooth = np.full(n, np.nan)
+    minus_smooth = np.full(n, np.nan)
+
+    tr_smooth[14] = tr_values[1:15].sum()
+    plus_smooth[14] = plus_dm[1:15].sum()
+    minus_smooth[14] = minus_dm[1:15].sum()
+
+    for i in range(15, n):
+        tr_smooth[i] = (
+            tr_smooth[i-1] * 13 / 14 + tr_values[i]
+        )
+        plus_smooth[i] = (
+            plus_smooth[i-1] * 13 / 14 + plus_dm[i]
+        )
+        minus_smooth[i] = (
+            minus_smooth[i-1] * 13 / 14 + minus_dm[i]
+        )
+
+    plus_di = np.full(n, np.nan)
+    minus_di = np.full(n, np.nan)
+    dx = np.full(n, np.nan)
+
+    for i in range(14, n):
+        if tr_smooth[i] > 0:
+            plus_di[i] = 100 * plus_smooth[i] / tr_smooth[i]
+            minus_di[i] = 100 * minus_smooth[i] / tr_smooth[i]
+        else:
+            plus_di[i] = 0.0
+            minus_di[i] = 0.0
+
+        di_sum = plus_di[i] + minus_di[i]
+        dx[i] = (
+            100 * abs(plus_di[i] - minus_di[i]) / di_sum
+            if di_sum > 0 else 0.0
+        )
+
+    adx = np.full(n, np.nan)
+    adx[27] = np.mean(dx[14:28])
+
+    for i in range(28, n):
+        adx[i] = (adx[i-1] * 13 + dx[i]) / 14
+
+    df['ADX'] = adx
     df['Plus_DI'] = plus_di
     df['Minus_DI'] = minus_di
+
         
     # --- B. LOGIC CHẤM ĐIỂM TRỌNG SỐ & QUẢN TRỊ RỦI RO ---
     trends = []
