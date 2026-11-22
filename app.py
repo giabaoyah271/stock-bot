@@ -392,6 +392,29 @@ if mode == "Phân tích chi tiết mã":
                 "Hãy kiểm tra kết nối TCBS và lịch nghỉ giao dịch."
             )
         is_green = last_row['Trend'] == 1
+        # Lich su danh gia tin hieu
+        with st.expander("Lịch sử tín hiệu 30 nến gần nhất"):
+            columns = [
+                "close", "RSI", "ADX",
+                "Plus_DI", "Minus_DI",
+                "MACD", "Signal_Line",
+                "Buy_Pct", "Sell_Pct",
+                "Trend", "Reason"
+            ]
+
+            history = df[columns].tail(30).copy()
+
+            history["Trạng thái"] = history["Trend"].map({
+                1: "Vùng xanh",
+                -1: "Vùng đỏ"
+            })
+
+            history = history.drop(columns=["Trend"])
+
+            st.dataframe(
+                history.round(2),
+                use_container_width=True
+            )
         # --- KIEM TRA CHAT LUONG DU LIEU ---
         with st.expander("Kiểm tra chất lượng dữ liệu TCBS"):
             cols = ["open", "high", "low", "close", "volume"]
