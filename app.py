@@ -449,6 +449,44 @@ if mode == "Phân tích chi tiết mã":
             with st.expander("Backtesting - Giao dịch mô phỏng"):
                 try:
                     trades = tao_bang_giao_dich(df)
+                    
+                    # Kiem tra Backtesting goc va ban thu nghiem
+                    try:
+                        from strategy_experiments import chay_backtest_thu_nghiem
+
+                        thu_goc = chay_backtest_thu_nghiem(
+                            df, bo_loc="goc"
+                        )
+
+                        cot = [
+                            c for c in trades.columns
+                            if c != "Lý do bán"
+                        ]
+
+                        trung_khop = (
+                            len(trades) == len(thu_goc)
+                            and trades[cot].reset_index(drop=True).equals(
+                                thu_goc[cot].reset_index(drop=True)
+                            )
+                        )
+
+                        if trung_khop:
+                            st.success(
+                                "Kiểm tra thành công: "
+                                "Backtesting gốc và bản thử nghiệm khớp nhau."
+                            )
+                        else:
+                            st.warning(
+                                "Hai phiên bản chưa khớp. "
+                                f"Gốc: {len(trades)} giao dịch; "
+                                f"thử nghiệm: {len(thu_goc)} giao dịch."
+                            )
+
+                    except Exception as e:
+                        st.warning(
+                            f"Lỗi kiểm tra: {type(e).__name__}"
+                        )
+
 
                     if trades.empty:
                         st.info("Chưa có giao dịch hoàn tất.")
