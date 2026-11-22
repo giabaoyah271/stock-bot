@@ -518,9 +518,67 @@ if mode == "Phân tích chi tiết mã":
                                 "Backtesting gốc và bản thử nghiệm khớp nhau."
                             )
                         
-                            # SO SANH 3 CHIEN LUOC DOC LAP
+                            # V2.1: CHI PHAN TICH CAC LENH DA DONG, KHONG DOI CHIEN LUOC
+                            with st.expander("V2.1 - Phân tích giao dịch V1/V2"):
+                                try:
+                                    from v21_trade_audit import phan_tich_giao_dich_v21
+
+                                    trades_v2_audit = chay_backtest_diem_v2(df)
+                                    tong_hop_v21, doi_chieu_v21, lenh_lo_v21, rieng_v1 = (
+                                        phan_tich_giao_dich_v21(
+                                            df, trades, trades_v2_audit
+                                        )
+                                    )
+
+                                    st.markdown("**Thống kê giao dịch đã đóng**")
+                                    st.dataframe(
+                                        tong_hop_v21,
+                                        hide_index=True,
+                                        use_container_width=True,
+                                    )
+
+                                    st.markdown("**Đối chiếu giao dịch V2 với V1**")
+                                    st.dataframe(
+                                        doi_chieu_v21.iloc[::-1].round(2),
+                                        hide_index=True,
+                                        use_container_width=True,
+                                    )
+
+                                    st.markdown("**Giao dịch V2 thua lỗ (lỗ lớn nhất trước)**")
+                                    if lenh_lo_v21.empty:
+                                        st.info("V2 chưa có giao dịch thua lỗ đã đóng.")
+                                    else:
+                                        st.dataframe(
+                                            lenh_lo_v21.round(2),
+                                            hide_index=True,
+                                            use_container_width=True,
+                                        )
+
+                                    st.markdown("**Giao dịch V1 không chồng lấn V2**")
+                                    if rieng_v1.empty:
+                                        st.info("Không có giao dịch V1 riêng không chồng lấn.")
+                                    else:
+                                        st.dataframe(
+                                            rieng_v1.iloc[::-1].round(2),
+                                            hide_index=True,
+                                            use_container_width=True,
+                                        )
+
+                                    st.caption(
+                                        "Chỉ đối chiếu các giao dịch đã đóng. "
+                                        "Trùng ngày mua khác với chồng lấn thời gian nắm giữ. "
+                                        "Chỉ báo mua lấy tại ngày phát tín hiệu; "
+                                        "không kết luận nguyên nhân thua lỗ hoặc hiệu quả ngoài mẫu."
+                                    )
+                                except Exception as e:
+                                    st.warning(
+                                        "Chưa thể hiển thị phân tích V2.1: "
+                                        f"{type(e).__name__}: {e}"
+                                    )
+
+                            # SO SANH 4 CHIEN LUOC DOC LAP
                             st.markdown(
-                                "**So sánh Backtesting 3 chiến lược**"
+                                "**So sánh Backtesting 4 chiến lược**"
                             )
 
                             ket_qua = []
