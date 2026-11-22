@@ -458,6 +458,24 @@ if mode == "Phân tích chi tiết mã":
                             trades.iloc[::-1],
                             use_container_width=True
                         )
+                        
+                        # Thong ke hieu qua giao dich
+                        returns = pd.to_numeric(
+                            trades["Lợi nhuận sau chi phí (%)"],
+                            errors="coerce"
+                        ).dropna()
+
+                        win_rate = (returns > 0).mean() * 100
+                        avg_return = returns.mean()
+
+                        st.metric(
+                            "Tỷ lệ giao dịch có lãi",
+                            f"{win_rate:.1f}%"
+                        )
+                        st.metric(
+                            "Lợi nhuận trung bình mỗi giao dịch",
+                            f"{avg_return:.2f}%"
+                        )
 
                     st.caption(
                         "Mô phỏng khớp lệnh ở giá mở cửa phiên tiếp theo. "
