@@ -191,3 +191,21 @@ def chay_backtest_thu_nghiem(df, bo_loc="sma"):
     trial["Trend"] = trial_trends
 
     return tao_bang_giao_dich(trial)
+
+def chay_backtest_diem_v2(df):
+    """
+    Backtesting V2, giu nguyen V1 va backtesting.py.
+    """
+    from scoring_v2 import tinh_diem_v2
+
+    trial = tinh_diem_v2(df).copy()
+
+    # Su dung diem V2 thay cho diem V1 trong ban sao
+    trial["Buy_Pct"] = trial["V2_Buy_Pct"].fillna(0)
+    trial["Sell_Pct"] = trial["V2_Sell_Pct"].fillna(0)
+
+    # Chay lai quy tac vao/thoat lenh hien tai
+    return chay_backtest_thu_nghiem(
+        trial, bo_loc="goc"
+    )
+    
