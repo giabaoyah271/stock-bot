@@ -235,6 +235,7 @@ def calculate_equity_risk(df, strategy, initial_capital=100.0):
         raise ValueError("Đối chiếu lợi nhuận đã đóng không khớp Backtesting gốc")
 
     open_pnl = ((closes[-1] / last_buy_cost) - 1) * 100 if shares else None
+    losing_returns = r[r < 0]
     metrics = {
         "Chiến lược": strategy,
         "Vốn cuối theo phiên": round(float(result["Equity"].iloc[-1]), 3),
@@ -251,6 +252,6 @@ def calculate_equity_risk(df, strategy, initial_capital=100.0):
                       for b, s in zip(ledger["Ngày mua mô phỏng"],
                                       ledger["Ngày bán mô phỏng"])) / len(ledger)), 1,
         ) if len(ledger) else None,
-        "Lệnh lỗ lớn nhất (%)": float(r.min()) if len(r) else None,
+        "Lệnh lỗ lớn nhất (%)": float(losing_returns.min()) if not losing_returns.empty else None,
     }
     return result, metrics
