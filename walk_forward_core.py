@@ -8,13 +8,13 @@ or pristine out-of-sample walk-forward testing.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 import math
 import numpy as np
 import pandas as pd
 
 START_YEAR = 2024
 MIN_HISTORY_BARS = 200
+MARKET_TZ = "Asia/Ho_Chi_Minh"
 
 
 @dataclass(frozen=True)
@@ -24,13 +24,44 @@ class Window:
     end: pd.Timestamp
 
 
+def _market_time(ts):
+    """Local naive reporting timestamp; aware timestamps convert to Vietnam time.
+
+    Naive timestamps already represent the trading calendar displayed by TCBS.
+    Never use tz_localize(None) directly on UTC-aware timestamps: doing so
+    preserves UTC wall-clock values rather than the Vietnam trading date.
+    """
+    ts = pd.Timestamp(ts)
+    return ts.tz_convert(MARKET_TZ).tz_localize(None) if ts.tz is not None else ts
+
+
+def _local_reporting_curve(curve):
+    """Return a shallow reporting copy indexed by Vietnam-local naive times.
+
+    Values, trade state, and execution order are never recalculated. Reject
+    duplicate *local trading dates* instead of silently merging/dropping rows.
+    """
+    if curve is None or not isinstance(curve.index, pd.DatetimeIndex):
+        raise ValueError("Chỉ mục ngày giao dịch phải là DatetimeIndex")
+    index = curve.index
+    if index.hasnans or index.has_duplicates or not index.is_monotonic_increasing:
+        raise ValueError("Chỉ mục ngày giao dịch cần tăng dần, không trùng và không chứa NaT")
+    if index.tz is not None:
+        index = index.tz_convert(MARKET_TZ).tz_localize(None)
+    if index.has_duplicates or not index.is_monotonic_increasing or index.normalize().has_duplicates:
+        raise ValueError("Trùng ngày giao dịch sau khi quy đổi giờ Việt Nam")
+    result = curve.copy(deep=False)
+    result.index = index
+    return result
+
+
 def half_year_windows(last_date, start_year=START_YEAR):
     """Fixed inclusive calendar halves through the last available year."""
-    last = pd.Timestamp(last_date)
-    if last.tz is not None:
-        last = last.tz_localize(None)
+    last = _market_time(last_date).normalize()
     if not 2020 <= int(start_year) <= 2100:
         raise ValueError("Năm bắt đầu đánh giá không hợp lệ")
+    if pd.isna(last):
+        raise ValueError("Ngày kết thúc dữ liệu không hợp lệ")
     if last.year < start_year:
         return []
     windows = []
@@ -48,9 +79,9 @@ def _validate_curve(curve):
     if curve is None or curve.empty or not required.issubset(curve.columns):
         raise ValueError("Thiếu dữ liệu đường Equity hoặc trạng thái giao dịch")
     idx = curve.index
-    if (not isinstance(idx, pd.DatetimeIndex) or idx.has_duplicates
-            or not idx.is_monotonic_increasing or idx.tz is not None):
-        raise ValueError("Chỉ mục ngày giao dịch cần tăng dần, không trùng, không múi giờ")
+    if (not isinstance(idx, pd.DatetimeIndex) or idx.hasnans or idx.has_duplicates
+            or not idx.is_monotonic_increasing or idx.normalize().has_duplicates):
+        raise ValueError("Chỉ mục ngày giao dịch cần tăng dần, không trùng và hợp lệ")
     numeric = curve[["Equity", "Tiền mặt", "Số cổ phiếu quy ước", "Drawdown (%)"]]
     numeric = numeric.apply(pd.to_numeric, errors="coerce")
     if not np.isfinite(numeric.to_numpy(dtype=float)).all():
@@ -132,6 +163,7 @@ def evaluate_windows_from_curve(curve, symbol, strategy, initial_capital=100.0, 
     The first window return baseline is the LAST close before its first
     trading session, so the first session's movement is not lost.
     """
+    curve = _local_reporting_curve(curve)
     _validate_curve(curve)
     initial_capital = float(initial_capital)
     if not math.isfinite(initial_capital) or initial_capital <= 0:
@@ -142,8 +174,11 @@ def evaluate_windows_from_curve(curve, symbol, strategy, initial_capital=100.0, 
     trades = _realized_sales(curve, initial_capital)
     window_rows, missing, raw_factors = [], [], []
     idx = curve.index
+    trade_days = idx.normalize()
+    sale_days = pd.to_datetime(trades["Ngày bán"]).dt.normalize()
+    buy_days = pd.to_datetime(trades["Ngày mua"]).dt.normalize()
     for w in windows:
-        mask = (idx >= w.start) & (idx <= w.end)
+        mask = (trade_days >= w.start) & (trade_days <= w.end)
         positions = np.flatnonzero(mask)
         if not len(positions):
             missing.append({"Mã": symbol, "Chiến lược": strategy,
@@ -159,9 +194,9 @@ def evaluate_windows_from_curve(curve, symbol, strategy, initial_capital=100.0, 
         local_dd = float((path / running - 1).min() * 100)
         change_factor = float(eq[-1] / base_equity)
         raw_factors.append(change_factor)
-        selected = trades.loc[(trades["Ngày bán"] >= w.start) & (trades["Ngày bán"] <= w.end)]
+        selected = trades.loc[(sale_days >= w.start) & (sale_days <= w.end)]
         stats = _closed_metrics(selected)
-        crossing = int((selected["Ngày mua"] < w.start).sum()) if len(selected) else 0
+        crossing = int((buy_days.loc[selected.index] < w.start).sum()) if len(selected) else 0
         shares = float(segment["Số cổ phiếu quy ước"].iloc[-1])
         window_rows.append({
             "Mã": symbol, "Chiến lược": strategy, "Cửa sổ": w.name,
@@ -181,7 +216,7 @@ def evaluate_windows_from_curve(curve, symbol, strategy, initial_capital=100.0, 
         })
     if not window_rows:
         raise ValueError("Không có phiên dữ liệu thuộc các cửa sổ đánh giá")
-    first_eval = next(i for i, t in enumerate(idx) if t >= windows[0].start)
+    first_eval = next(i for i, t in enumerate(trade_days) if t >= windows[0].start)
     initial_eval_equity = float(curve["Equity"].iloc[first_eval - 1]) if first_eval > 0 else initial_capital
     last_eval_equity = float(curve["Equity"].iloc[-1])
     composed = float(np.prod(raw_factors))
@@ -191,7 +226,7 @@ def evaluate_windows_from_curve(curve, symbol, strategy, initial_capital=100.0, 
     evaluation = curve.iloc[first_eval:]
     eval_path = np.r_[initial_eval_equity, evaluation["Equity"].to_numpy(dtype=float)]
     evaluated_dd = float((eval_path / np.maximum.accumulate(eval_path) - 1).min() * 100)
-    eval_trades = trades.loc[trades["Ngày bán"] >= windows[0].start]
+    eval_trades = trades.loc[sale_days >= windows[0].start]
     eval_stats = _closed_metrics(eval_trades)
     # Compare full-history realized returns to original engine's closed count.
     full_equity = float(curve["Equity"].iloc[-1])
@@ -238,4 +273,5 @@ def evaluate_walk_forward_case(symbol, data, strategy):
     local_pf = _closed_metrics(trades)["Profit Factor (theo tiền)"]
     if local_pf != original_trading["Profit Factor"]:
         raise ValueError("Profit Factor toàn lịch sử không khớp mô-đun rủi ro gốc")
-    return rows, aggregate, errors, curve[["Equity", "Drawdown (%)"]].copy()
+    chart = _local_reporting_curve(curve)
+    return rows, aggregate, errors, chart[["Equity", "Drawdown (%)"]].copy()
