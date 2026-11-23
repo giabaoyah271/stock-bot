@@ -666,7 +666,7 @@ if mode == "Phân tích chi tiết mã":
 
                     except Exception as e:
                         st.warning(
-                            f"Lỗi kiểm tra: {type(e).__name__}"
+                            f"Lỗi kiểm tra: {type(e).__name__}: {str(e)[:200]}"
                         )
 
 
