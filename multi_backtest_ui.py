@@ -22,6 +22,10 @@ def render_multi_backtest(get_data):
         "được tải qua cache có sẵn của Stock Bot. Không phát lệnh giao dịch."
     )
 
+    with st.expander("Tổng hợp Equity và Drawdown đa mã (thử nghiệm)", expanded=False):
+        from risk_batch_ui import render_batch_risk
+        render_batch_risk(get_data)
+
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
             "Mã cổ phiếu (phân tách bằng dấu phẩy)",
