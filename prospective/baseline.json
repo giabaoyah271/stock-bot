@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "purpose": "Fixed-strategy prospective research baseline; not live trading",
+  "frozen_on_vietnam_date": "2026-11-23",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "baseline_commit": "415b6ca728bbfb57903fde7b7dcf0a96443920bf",
+  "branch_at_freeze": "cloud-dev",
+  "first_eligible_evaluation_session_rule": "First fully completed Vietnam trading session strictly after 2026-11-23; count only sessions with archived contemporaneous evidence",
+  "historical_data_caveat": "2022-2026 through 2026-11-23 has already been inspected; never call those sessions pristine out-of-sample",
+  "provider": "TCBS via existing Stock Bot loader (data may be revised)",
+  "interval": "Ngày",
+  "symbols": ["HPG", "MBB", "FPT", "TCB", "MWG", "VNM", "ACB", "DGC", "GAS", "GMD", "PNJ", "REE"],
+  "strategies": [
+    "Chiến lược gốc",
+    "Lọc SMA50/SMA200",
+    "Lọc ADX + DI + MACD",
+    "Chấm điểm V2",
+    "V2.1 - Xác nhận MACD"
+  ],
+  "execution": {
+    "signal_time": "At completed daily candle close",
+    "fill_time": "Following session opening price",
+    "buy_fee": 0.0015,
+    "sell_fee": 0.0015,
+    "sell_tax": 0.001,
+    "slippage_each_side": 0.001,
+    "initial_capital_index": 100.0,
+    "position_model": "One stock per test case, all cash invested, fractional shares, long-only",
+    "no_mandatory_T_plus_2_or_3_hold": true,
+    "cash_interest": 0,
+    "dividends_as_cash": false,
+    "profit_factor": "Monetary realized P&L on reinvested capital using trade returns rounded to 0.01%; ignores open positions"
+  },
+  "fixed_strategy": {
+    "v1": "Existing adaptive ADX score threshold and ATR trailing logic in app.py; unchanged",
+    "sma": "Entry filter close > SMA200 and SMA50 > SMA200",
+    "adx_macd": "Entry filter ADX >= 25, Plus_DI > Minus_DI and MACD > Signal_Line",
+    "v2_group_weights": {"Trend": 30, "Strength": 20, "Momentum": 20, "Flow": 20, "Reversal": 10},
+    "v21": "V2 score and MACD > Signal_Line confirmation on new entries only"
+  },
+  "source_blob_sha_at_freeze": {
+    "app.py": "3d902fe0fcc451f9765d87a7c7df97c8cf7b4bbf",
+    "backtesting.py": "bdb39383483babe7eaf7e382ad09215b5151537d",
+    "risk_equity.py": "05e682896520df9c458192cea59515abf4957951",
+    "risk_batch.py": "32e9c924d39aa254c4d21edafd6ac0663b309c5b",
+    "performance_metrics.py": "2c4c519f9b4f08eecf473bde4e0d5cc4b570c7d1",
+    "strategy_experiments.py": "ddf0cb480ae7ad8077913c5e243dde59789d0925",
+    "scoring_v2.py": "5bfb2ae38edba1f44b8912020465003d06f6b5e1",
+    "v21_macd_strategy.py": "3d733aa0300ed9fb2271750e13e8856ad32e0c1f",
+    "walk_forward_core.py": "84c13c5d8facc030a9670e705cbcb0c5dca8d4b9"
+  }
+}
