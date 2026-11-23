@@ -31,16 +31,24 @@ def _comparison(summary):
 
 
 def _chart(series, title, boundaries):
+    """Plot Vietnam-local dates without timezone comparison conflicts."""
+    index = series.index
+    if isinstance(index, pd.DatetimeIndex) and index.tz is not None:
+        index = index.tz_convert("Asia/Ho_Chi_Minh").tz_localize(None)
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=series.index, y=series.values, mode="lines", name=title))
+    fig.add_trace(go.Scatter(x=index, y=series.values, mode="lines", name=title))
+    days = index.normalize()
     for window in boundaries:
-        if series.index.min() <= window.start <= series.index.max():
-            fig.add_vline(x=window.start.to_pydatetime(), line_dash="dot", line_width=1,
-                          line_color="gray", opacity=0.65)
-    fig.update_layout(xaxis_title="Phiên", yaxis_title=title, margin=dict(l=10, r=10, t=12, b=10),
+        if days.min() <= window.start <= days.max():
+            # add_shape is safe for datetime axes across supported Plotly builds.
+            at = window.start.to_pydatetime()
+            fig.add_shape(type="line", xref="x", yref="paper",
+                          x0=at, x1=at, y0=0, y1=1,
+                          line=dict(color="gray", width=1, dash="dot"))
+    fig.update_layout(xaxis_title="Phiên", yaxis_title=title,
+                      margin=dict(l=10, r=10, t=12, b=10),
                       height=330, showlegend=False)
     return fig
-
 
 def render_walk_forward(get_data):
     st.markdown("**Walk-Forward Backtesting (kiểm định theo thời gian)**")
@@ -81,7 +89,10 @@ def render_walk_forward(get_data):
                         raise ValueError("Không có dữ liệu lịch sử")
                     # Avoid an in-progress bar without fetching data again.
                     vn_now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
-                    if (history.index[-1].date() == vn_now.date()
+                    last_stamp = pd.Timestamp(history.index[-1])
+                    if last_stamp.tz is not None:
+                        last_stamp = last_stamp.tz_convert("Asia/Ho_Chi_Minh")
+                    if (last_stamp.date() == vn_now.date()
                             and vn_now.time() < time(15, 15)):
                         history = history.iloc[:-1].copy()
                         trimmed.append(symbol)
