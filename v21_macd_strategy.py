@@ -14,6 +14,16 @@ def chay_backtest_diem_v21_macd(df):
     at the next session's open. It never forces exits.
     """
     trial = tinh_diem_v2(df).copy()
-    trial["Buy_Pct"] = trial["V2_Buy_Pct"].fillna(0)
+    # Use an isolated copy: V2 scores stay unchanged in scoring_v2.py.
+    # MACD is a BUY gate only; scores never get recalculated.
+    macd_ok = (
+        trial["MACD"].notna()
+        & trial["Signal_Line"].notna()
+        & (trial["MACD"] > trial["Signal_Line"])
+    )
+    trial["Buy_Pct"] = trial["V2_Buy_Pct"].where(macd_ok, 0).fillna(0)
     trial["Sell_Pct"] = trial["V2_Sell_Pct"].fillna(0)
-    return chay_backtest_thu_nghiem(trial, bo_loc="macd")
+
+    # Re-run ALL position states with the same tested simulation as V2.
+    # Only this trial's buy opportunities are disabled on weak MACD bars.
+    return chay_backtest_thu_nghiem(trial, bo_loc="goc")
