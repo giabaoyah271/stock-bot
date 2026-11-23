@@ -87,7 +87,9 @@ def render_multi_backtest(get_data):
     st.caption(
         "Lợi nhuận tích lũy giả định tái đầu tư lần lượt theo các lệnh đã đóng của từng mã/chiến lược; "
         "sụt giảm vốn đo trên chuỗi lệnh đã đóng (không phải drawdown theo giá hằng ngày). "
-        "Profit Factor để trống nếu không có lệnh lỗ; các kết quả không đại diện danh mục đa mã."
+        "Profit Factor tính theo số tiền lãi/lỗ của các lệnh đã đóng với tái đầu tư toàn bộ vốn, "
+        "dựa trên lợi nhuận mỗi lệnh làm tròn 0,01%; để trống nếu không có lệnh lỗ. "
+        "Các kết quả không đại diện danh mục đa mã."
     )
 
     results = report["results"]
