@@ -104,6 +104,9 @@ def render_multi_backtest(get_data):
             hide_index=True,
             use_container_width=True,
         )
+        st.divider()
+        from risk_equity_ui import render_equity_panel
+        render_equity_panel(get_data, selected)
 
     errors = report["errors"]
     if not errors.empty:
