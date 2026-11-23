@@ -374,7 +374,10 @@ mode = st.sidebar.radio(
     ["Phân tích chi tiết mã", "Quét tín hiệu toàn thị trường",
      "Backtesting đa mã và kiểm định chiến lược"],
 )
-timeframe = st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
+timeframe = (
+    "Ngày" if mode == "Backtesting đa mã và kiểm định chiến lược"
+    else st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
+)
 
 if mode == "Phân tích chi tiết mã":
     symbol = st.sidebar.text_input("Nhập mã cổ phiếu", "HPG").upper()
