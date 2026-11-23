@@ -8,6 +8,7 @@ historical period analysis, NOT a pristine out-of-sample evaluation.
 import re
 from datetime import date
 import pandas as pd
+from performance_metrics import profit_factor_money
 
 DEFAULT_SYMBOLS = "HPG, MBB, FPT, TCB, MWG, VNM"
 MAX_SYMBOLS = 12
@@ -97,8 +98,7 @@ def trade_metrics(trades):
             "Profit Factor": None, "Lợi nhuận tích lũy (%)": None,
             "Sụt giảm vốn (%)": None,
         }
-    gain = float(r[r > 0].sum())
-    loss = float(-r[r < 0].sum())
+    pf = profit_factor_money(r)
     capital = pd.concat([
         pd.Series([1.0]), (1.0 + r.reset_index(drop=True) / 100.0).cumprod()
     ], ignore_index=True)
@@ -108,7 +108,7 @@ def trade_metrics(trades):
         "Số lệnh thua": losses,
         "Win Rate (%)": round(wins / len(r) * 100, 1),
         "Lợi nhuận TB (%)": round(float(r.mean()), 2),
-        "Profit Factor": round(gain / loss, 2) if loss > 0 else None,
+        "Profit Factor": round(pf, 2) if pf is not None else None,
         "Lợi nhuận tích lũy (%)": round(float((capital.iloc[-1] - 1) * 100), 2),
         "Sụt giảm vốn (%)": round(float(((capital / capital.cummax()) - 1).min() * 100), 2),
     }
