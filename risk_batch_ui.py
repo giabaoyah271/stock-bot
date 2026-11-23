@@ -91,7 +91,8 @@ def render_batch_risk(get_data):
         "Đây là đánh giá hồi cứu bằng dữ liệu lịch sử, KHÔNG phải kiểm định ngoài mẫu "
         "độc lập hay lợi nhuận của danh mục 12 mã. Equity theo giá đóng cửa từng phiên; "
         "vị thế mở chưa trừ phí bán giả định. Drawdown theo lệnh đóng dùng lợi nhuận "
-        "được làm tròn 0,01%; chênh lệch Drawdown tính theo độ sâu (điểm %)."
+        "được làm tròn 0,01%; chênh lệch Drawdown tính theo độ sâu (điểm %). "
+        "Profit Factor tính theo tiền lãi/lỗ các giao dịch đã đóng khi tái đầu tư toàn bộ vốn."
     )
     if not rows.empty:
         left, mid, right = st.columns(3)
