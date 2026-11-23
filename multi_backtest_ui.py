@@ -26,6 +26,10 @@ def render_multi_backtest(get_data):
         from risk_batch_ui import render_batch_risk
         render_batch_risk(get_data)
 
+    with st.expander("Walk-Forward Backtesting (kiểm định theo thời gian)", expanded=False):
+        from walk_forward_ui import render_walk_forward
+        render_walk_forward(get_data)
+
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
             "Mã cổ phiếu (phân tách bằng dấu phẩy)",
