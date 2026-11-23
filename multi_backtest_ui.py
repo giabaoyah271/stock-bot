@@ -1,0 +1,111 @@
+"""Optional Streamlit page: on-demand multi-stock strategy comparisons."""
+
+from datetime import date
+import pandas as pd
+import streamlit as st
+
+from multi_backtest_core import (
+    DEFAULT_SYMBOLS, evaluate_symbol, parse_symbols, period_dates,
+)
+
+PERIOD_CHOICES = (
+    "Toàn bộ dữ liệu", "2022–2024 (lịch sử)",
+    "2025–2026 (lịch sử)", "Tùy chỉnh",
+)
+
+
+def render_multi_backtest(get_data):
+    """Keep the app's TCBS connection and cached historical loader unchanged."""
+    st.header("Backtesting đa mã và kiểm định chiến lược")
+    st.caption(
+        "Chỉ sử dụng khung Ngày. Chạy khi nhấn nút; dữ liệu lịch sử TCBS "
+        "được tải qua cache có sẵn của Stock Bot. Không phát lệnh giao dịch."
+    )
+
+    with st.form("multi_backtest_form"):
+        symbols_text = st.text_area(
+            "Mã cổ phiếu (phân tách bằng dấu phẩy)",
+            value=DEFAULT_SYMBOLS,
+            height=85,
+        )
+        chosen_period = st.selectbox("Giai đoạn đánh giá", PERIOD_CHOICES)
+        left, right = st.columns(2)
+        with left:
+            start_date = st.date_input("Từ ngày (chỉ khi Tùy chỉnh)", value=date(2022, 1, 1))
+        with right:
+            end_date = st.date_input("Đến ngày (chỉ khi Tùy chỉnh)", value=date.today())
+        submit = st.form_submit_button("Chạy Backtesting đa mã", type="primary")
+
+    if submit:
+        try:
+            symbols = parse_symbols(symbols_text)
+            label, start, end = period_dates(chosen_period, start_date, end_date)
+        except ValueError as exc:
+            st.error(str(exc))
+        else:
+            all_rows, all_errors = [], []
+            progress = st.progress(0, text="Đang kiểm tra dữ liệu...")
+            for i, symbol in enumerate(symbols):
+                progress.progress(i / len(symbols), text=f"Đang phân tích {symbol} ({i + 1}/{len(symbols)})")
+                try:
+                    # Reuse the app's cached daily loader, not a new TCBS client.
+                    historical = get_data(symbol, "Ngày")
+                    rows, errors = evaluate_symbol(symbol, historical, label, start, end)
+                    all_rows.extend(rows)
+                    all_errors.extend(errors)
+                except Exception as exc:
+                    all_errors.append({
+                        "Mã": symbol,
+                        "Chiến lược": "Tải dữ liệu",
+                        "Lỗi": type(exc).__name__,
+                    })
+            progress.empty()
+            st.session_state["multi_backtest_report"] = {
+                "symbols": symbols,
+                "label": label,
+                "results": pd.DataFrame(all_rows),
+                "errors": pd.DataFrame(all_errors),
+            }
+
+    report = st.session_state.get("multi_backtest_report")
+    if report is None:
+        st.info("Nhập danh sách mã rồi nhấn 'Chạy Backtesting đa mã' để xem báo cáo.")
+        return
+
+    st.subheader("Báo cáo Backtesting")
+    st.caption(f"Giai đoạn: {report['label']} | Mã yêu cầu: {', '.join(report['symbols'])}")
+    st.warning(
+        "Đây là phân tích lại dữ liệu lịch sử, KHÔNG phải kiểm định ngoài mẫu độc lập. "
+        "Chỉ tính lệnh đã đóng và có ngày mua, ngày bán nằm hoàn toàn trong giai đoạn chọn. "
+        "Lệnh giao ranh giới được đếm riêng, không tính vào chỉ tiêu. "
+        "Vị thế chưa đóng không có trong Backtesting hiện hành."
+    )
+    st.caption(
+        "Lợi nhuận tích lũy giả định tái đầu tư lần lượt theo các lệnh đã đóng của từng mã/chiến lược; "
+        "sụt giảm vốn đo trên chuỗi lệnh đã đóng (không phải drawdown theo giá hằng ngày). "
+        "Profit Factor để trống nếu không có lệnh lỗ; các kết quả không đại diện danh mục đa mã."
+    )
+
+    results = report["results"]
+    if results.empty:
+        st.info("Không có chiến lược nào trả về kết quả hợp lệ.")
+    else:
+        st.dataframe(results, hide_index=True, use_container_width=True)
+        st.download_button(
+            "Tải CSV kết quả",
+            data=results.to_csv(index=False).encode("utf-8-sig"),
+            file_name="stock_bot_backtesting_da_ma.csv",
+            mime="text/csv",
+        )
+        available = list(dict.fromkeys(results["Mã"].tolist()))
+        selected = st.selectbox("Xem chi tiết một mã", available)
+        st.dataframe(
+            results.loc[results["Mã"] == selected].reset_index(drop=True),
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    errors = report["errors"]
+    if not errors.empty:
+        st.markdown("**Mã hoặc chiến lược chưa xử lý được**")
+        st.dataframe(errors, hide_index=True, use_container_width=True)
