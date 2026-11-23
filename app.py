@@ -369,7 +369,11 @@ def get_data(symbol, tf):
 
 # --- 5. GIAO DIỆN CHÍNH ---
 st.sidebar.title("🛠️ Điều khiển")
-mode = st.sidebar.radio("Chế độ", ["Phân tích chi tiết mã", "Quét tín hiệu toàn thị trường"])
+mode = st.sidebar.radio(
+    "Chế độ",
+    ["Phân tích chi tiết mã", "Quét tín hiệu toàn thị trường",
+     "Backtesting đa mã và kiểm định chiến lược"],
+)
 timeframe = st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
 
 if mode == "Phân tích chi tiết mã":
@@ -948,6 +952,9 @@ if mode == "Phân tích chi tiết mã":
     else:
         st.error("⚠️ Không thể kết nối dữ liệu.")
 
+elif mode == "Backtesting đa mã và kiểm định chiến lược":
+    from multi_backtest_ui import render_multi_backtest
+    render_multi_backtest(get_data)
 else:
     st.header(f"🔍 Trình quét tín hiệu (Khung: {timeframe})")
     if st.button("Bắt đầu phân tích"):
