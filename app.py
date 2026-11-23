@@ -7,6 +7,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 import time
 from backtesting import tao_bang_giao_dich
+from performance_metrics import profit_factor_money
 
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(page_title="Hệ thống Giao dịch Xanh-Đỏ", layout="wide")
@@ -618,13 +619,7 @@ if mode == "Phân tích chi tiết mã":
                                     })
                                     continue
 
-                                tong_lai = r[r > 0].sum()
-                                tong_lo = -r[r < 0].sum()
-
-                                pf = (
-                                    tong_lai / tong_lo
-                                    if tong_lo > 0 else None
-                                )
+                                pf = profit_factor_money(r)
 
                                 von = pd.concat(
                                     [
@@ -704,15 +699,12 @@ if mode == "Phân tích chi tiết mã":
                             f"{avg_return:.2f}%"
                         )
                         
-                        # Profit Factor
-                        total_win = returns[returns > 0].sum()
-                        total_loss = -returns[returns < 0].sum()
-
-                        if total_loss > 0:
-                            profit_factor = total_win / total_loss
-                            pf_text = f"{profit_factor:.2f}"
-                        else:
-                            pf_text = "Không có lệnh lỗ"
+                        # Profit Factor trên số tiền lãi/lỗ, tái đầu tư toàn bộ vốn.
+                        profit_factor = profit_factor_money(returns)
+                        pf_text = (
+                            f"{profit_factor:.2f}" if profit_factor is not None
+                            else "Không có lệnh lỗ"
+                        )
 
                         # Muc sut giam von sau cac lenh da dong
                         growth = (1 + returns / 100).cumprod()
@@ -724,7 +716,7 @@ if mode == "Phân tích chi tiết mã":
                         drawdown = (equity / equity.cummax() - 1) * 100
 
                         col_pf, col_dd = st.columns(2)
-                        col_pf.metric("Profit Factor", pf_text)
+                        col_pf.metric("Profit Factor (theo tiền)", pf_text)
                         col_dd.metric(
                             "Sụt giảm vốn sau các lệnh đã đóng",
                             f"{drawdown.min():.2f}%"
@@ -774,13 +766,7 @@ if mode == "Phân tích chi tiết mã":
                                 })
                                 continue
 
-                            total_win = r[r > 0].sum()
-                            total_loss = -r[r < 0].sum()
-
-                            pf = (
-                                total_win / total_loss
-                                if total_loss > 0 else None
-                            )
+                            pf = profit_factor_money(r)
 
                             growth_test = (1 + r / 100).cumprod()
                             capital = pd.concat(
@@ -981,7 +967,7 @@ else:
                     "Trạng thái": status, 
                     "Giá Tín Hiệu": entry_price, 
                     "Giá Hiện Tại": last_s['close'],
-                    "Lời/Lỗ (%)": profit,
+                    "Biến động giá từ tín hiệu (%)": profit,
                     "% Đồng Thuận Mua": last_s['Buy_Pct'],
                     "% Đồng Thuận Bán": last_s['Sell_Pct'],
                     "Lý do": last_s['Reason']
@@ -992,7 +978,7 @@ else:
         df_res = pd.DataFrame(results)
         if not df_res.empty:
             # Ép kiểu số để tính toán và định dạng chính xác
-            cols_to_fix = ["Giá Tín Hiệu", "Giá Hiện Tại", "Lời/Lỗ (%)"]
+            cols_to_fix = ["Giá Tín Hiệu", "Giá Hiện Tại", "Biến động giá từ tín hiệu (%)"]
             for col in cols_to_fix:
                 if col in df_res.columns:
                     df_res[col] = pd.to_numeric(df_res[col], errors='coerce')
@@ -1007,13 +993,18 @@ else:
                     "STT": st.column_config.NumberColumn("STT", width="small"),
                     "Giá Tín Hiệu": st.column_config.NumberColumn("Giá Tín Hiệu", format="%.2f"),
                     "Giá Hiện Tại": st.column_config.NumberColumn("Giá Hiện Tại", format="%.2f"),
-                    "Lời/Lỗ (%)": st.column_config.NumberColumn("Lời/Lỗ (%)", format="%.2f%%"),
+                    "Biến động giá từ tín hiệu (%)": st.column_config.NumberColumn("Biến động giá từ tín hiệu (%)", format="%.2f%%"),
                     "% Đồng Thuận Mua": st.column_config.ProgressColumn("% MUA", format="%f%%", min_value=0, max_value=100),
                     "% Đồng Thuận Bán": st.column_config.ProgressColumn("% BÁN", format="%f%%", min_value=0, max_value=100),
                 },
                 use_container_width=True,
                 height=600,
                 hide_index=True # Ẩn cột chỉ số mặc định của Pandas để dùng cột STT mình tự tạo
+            )
+            st.caption(
+                "Biến động giá kể từ tín hiệu gần nhất, KHÔNG phải lãi/lỗ đã "
+                "thực hiện của chiến lược. Khi đang ở trạng thái BÁN/đứng ngoài, "
+                "giá tiếp tục giảm không làm phát sinh khoản lỗ giao dịch mới."
             )
         else:
             st.warning("Không có dữ liệu nào được tìm thấy.")
