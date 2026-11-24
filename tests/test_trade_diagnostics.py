@@ -88,6 +88,7 @@ class TradeDiagnosticsTests(unittest.TestCase):
     def test_nonfinite_ohlc_rejected(self):
         df=fixture()
         ledger=tao_bang_giao_dich(df)
+        df["volume"]=df["volume"].astype(float)
         df.loc[df.index[2],"volume"]=np.inf
         with self.assertRaises(ValueError):
             diagnose_ledger("HPG",RESEARCH[0],df,ledger)
