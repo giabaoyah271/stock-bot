@@ -68,6 +68,10 @@ def render_multi_backtest(get_data):
         from cross_section_ui import render_cross_section
         render_cross_section(get_data)
 
+    with st.expander("KT16 – Universe & Concentration Robustness", expanded=False):
+        from concentration_ui import render_concentration
+        render_concentration()
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
