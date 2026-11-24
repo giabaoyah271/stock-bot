@@ -2,7 +2,7 @@ name: Stock Bot research regression tests
 
 on:
   push:
-    branches: [cloud-dev]
+    branches: [cloud-dev, research-v3]
   workflow_dispatch:
 
 permissions:

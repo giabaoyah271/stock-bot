@@ -8,6 +8,8 @@ from multi_backtest_core import (
     DEFAULT_SYMBOLS, evaluate_symbol, parse_symbols, period_dates,
 )
 
+from strategy_policy import GROUP_CHOICES, RESEARCH_NOTE, resolve_strategies
+
 PERIOD_CHOICES = (
     "Toàn bộ dữ liệu", "2022–2024 (lịch sử)",
     "2025–2026 (lịch sử)", "Tùy chỉnh",
@@ -30,12 +32,14 @@ def render_multi_backtest(get_data):
         from walk_forward_ui import render_walk_forward
         render_walk_forward(get_data)
 
+    st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
             "Mã cổ phiếu (phân tách bằng dấu phẩy)",
             value=DEFAULT_SYMBOLS,
             height=85,
         )
+        strategy_group = st.selectbox("Nhóm chiến lược", GROUP_CHOICES, key="multi_strategy_group")
         chosen_period = st.selectbox("Giai đoạn đánh giá", PERIOD_CHOICES)
         left, right = st.columns(2)
         with left:
@@ -48,6 +52,7 @@ def render_multi_backtest(get_data):
         try:
             symbols = parse_symbols(symbols_text)
             label, start, end = period_dates(chosen_period, start_date, end_date)
+            strategies = resolve_strategies(strategy_group)
         except ValueError as exc:
             st.error(str(exc))
         else:
@@ -58,7 +63,7 @@ def render_multi_backtest(get_data):
                 try:
                     # Reuse the app's cached daily loader, not a new TCBS client.
                     historical = get_data(symbol, "Ngày")
-                    rows, errors = evaluate_symbol(symbol, historical, label, start, end)
+                    rows, errors = evaluate_symbol(symbol, historical, label, start, end, strategies=strategies)
                     all_rows.extend(rows)
                     all_errors.extend(errors)
                 except Exception as exc:
@@ -71,6 +76,7 @@ def render_multi_backtest(get_data):
             st.session_state["multi_backtest_report"] = {
                 "symbols": symbols,
                 "label": label,
+                "strategies": strategies,
                 "results": pd.DataFrame(all_rows),
                 "errors": pd.DataFrame(all_errors),
             }
@@ -81,6 +87,7 @@ def render_multi_backtest(get_data):
         return
 
     st.subheader("Báo cáo Backtesting")
+    st.caption("Chiến lược đã chạy: " + ", ".join(report.get("strategies", ())) )
     st.caption(f"Giai đoạn: {report['label']} | Mã yêu cầu: {', '.join(report['symbols'])}")
     st.warning(
         "Đây là phân tích lại dữ liệu lịch sử, KHÔNG phải kiểm định ngoài mẫu độc lập. "

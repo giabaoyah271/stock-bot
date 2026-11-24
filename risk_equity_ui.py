@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from risk_equity import STRATEGIES, calculate_equity_risk
+from strategy_policy import RESEARCH, ARCHIVED, ARCHIVE_LABEL, RESEARCH_NOTE
 
 
 def render_equity_panel(get_data, symbol):
@@ -13,7 +14,12 @@ def render_equity_panel(get_data, symbol):
         "được tải, độc lập với bộ lọc giai đoạn của bảng Backtesting phía trên. "
         "Chỉ chạy khi bạn bấm nút."
     )
-    choice = st.selectbox("Chiến lược kiểm tra rủi ro", STRATEGIES, key="risk_equity_strategy")
+    st.caption(RESEARCH_NOTE)
+    include_archived = st.checkbox(ARCHIVE_LABEL, value=False, key="risk_equity_archived")
+    options = RESEARCH + ARCHIVED if include_archived else RESEARCH
+    if st.session_state.get("risk_equity_strategy") not in options:
+        st.session_state.pop("risk_equity_strategy", None)
+    choice = st.selectbox("Chiến lược kiểm tra rủi ro", options, key="risk_equity_strategy")
     if st.button("Tính Equity và Drawdown theo phiên", key="risk_equity_run"):
         try:
             with st.spinner(f"Đang phân tích {symbol} - {choice}..."):

@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from risk_batch import GROUPS, evaluate_risk_case, selected_symbols
-from risk_equity import STRATEGIES
+from strategy_policy import CHOICES, RESEARCH_NOTE, resolve_strategies
 
 SORT_OPTIONS = (
     "Theo mã và chiến lược", "Drawdown theo phiên xấu nhất trước",
@@ -19,6 +19,7 @@ def render_batch_risk(get_data):
         "chọn ở Backtesting phía dưới). Chỉ tính khi nhấn nút; mỗi mã lấy "
         "dữ liệu TCBS một lần qua cache hiện có."
     )
+    st.caption(RESEARCH_NOTE)
     with st.form("batch_risk_form"):
         group = st.selectbox("Nhóm cổ phiếu", tuple(GROUPS), key="batch_risk_group")
         custom = st.text_input(
@@ -26,7 +27,7 @@ def render_batch_risk(get_data):
             value="HPG, MBB", key="batch_risk_custom",
         )
         choice = st.selectbox(
-            "Chiến lược cần kiểm tra", ("Tất cả 5 chiến lược",) + STRATEGIES,
+            "Chiến lược cần kiểm tra", CHOICES,
             key="batch_risk_strategy",
         )
         pressed = st.form_submit_button("Chạy tổng hợp rủi ro", type="primary")
@@ -38,7 +39,7 @@ def render_batch_risk(get_data):
         except ValueError as exc:
             st.error(str(exc))
         else:
-            strategies = list(STRATEGIES) if choice == "Tất cả 5 chiến lược" else [choice]
+            strategies = resolve_strategies(choice)
             count = len(symbols) * len(strategies)
             rows, failures, curves = [], [], {}
             completed = 0

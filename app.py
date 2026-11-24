@@ -403,45 +403,51 @@ if mode == "Phân tích chi tiết mã":
             )
         is_green = last_row['Trend'] == 1
         
+        # Archived strategy display is opt-in on daily research only.
+        show_archived = timeframe != "Ngày" or st.checkbox(
+            "Bật chiến lược lưu trữ V2/V2.1 (nghiên cứu lịch sử)",
+            value=False, key="daily_show_archived"
+        )
         # SO SANH DIEM V1 VA V2
-        with st.expander("So sánh điểm mua/bán V1 và V2"):
-            try:
-                from scoring_v2 import tinh_diem_v2
+        if show_archived:
+            with st.expander("So sánh điểm mua/bán V1 và V2"):
+                try:
+                    from scoring_v2 import tinh_diem_v2
 
-                df_v2 = tinh_diem_v2(df)
+                    df_v2 = tinh_diem_v2(df)
 
-                so_sanh = df_v2[
-                    [
-                        "Buy_Pct",
-                        "Sell_Pct",
-                        "V2_Buy_Pct",
-                        "V2_Sell_Pct",
-                        "V2_Ready"
-                    ]
-                ].tail(10).copy()
+                    so_sanh = df_v2[
+                        [
+                            "Buy_Pct",
+                            "Sell_Pct",
+                            "V2_Buy_Pct",
+                            "V2_Sell_Pct",
+                            "V2_Ready"
+                        ]
+                    ].tail(10).copy()
 
-                so_sanh = so_sanh.rename(columns={
-                    "Buy_Pct": "Điểm mua V1",
-                    "Sell_Pct": "Điểm bán V1",
-                    "V2_Buy_Pct": "Điểm mua V2",
-                    "V2_Sell_Pct": "Điểm bán V2",
-                    "V2_Ready": "Đủ dữ liệu V2"
-                })
+                    so_sanh = so_sanh.rename(columns={
+                        "Buy_Pct": "Điểm mua V1",
+                        "Sell_Pct": "Điểm bán V1",
+                        "V2_Buy_Pct": "Điểm mua V2",
+                        "V2_Sell_Pct": "Điểm bán V2",
+                        "V2_Ready": "Đủ dữ liệu V2"
+                    })
 
-                st.dataframe(
-                    so_sanh.round(2),
-                    use_container_width=True
-                )
+                    st.dataframe(
+                        so_sanh.round(2),
+                        use_container_width=True
+                    )
 
-                st.caption(
-                    "V2 chỉ đang thử nghiệm cách chấm điểm. "
-                    "Chưa thay đổi tín hiệu giao dịch hiện tại."
-                )
+                    st.caption(
+                        "V2 chỉ đang thử nghiệm cách chấm điểm. "
+                        "Chưa thay đổi tín hiệu giao dịch hiện tại."
+                    )
 
-            except Exception as e:
-                st.warning(
-                    f"Chưa thể tính điểm V2: {type(e).__name__}"
-                )
+                except Exception as e:
+                    st.warning(
+                        f"Chưa thể tính điểm V2: {type(e).__name__}"
+                    )
 
         # Lich su danh gia tin hieu
         with st.expander("Lịch sử tín hiệu 30 nến gần nhất"):
@@ -527,82 +533,85 @@ if mode == "Phân tích chi tiết mã":
                                 "Backtesting gốc và bản thử nghiệm khớp nhau."
                             )
                         
-                            # V2.1: CHI PHAN TICH CAC LENH DA DONG, KHONG DOI CHIEN LUOC
-                            with st.expander("V2.1 - Phân tích giao dịch V1/V2"):
-                                try:
-                                    from v21_trade_audit import phan_tich_giao_dich_v21
+                            if show_archived:
+                                # V2.1: CHI PHAN TICH CAC LENH DA DONG, KHONG DOI CHIEN LUOC
+                                with st.expander("V2.1 - Phân tích giao dịch V1/V2"):
+                                    try:
+                                        from v21_trade_audit import phan_tich_giao_dich_v21
 
-                                    trades_v2_audit = chay_backtest_diem_v2(df)
-                                    tong_hop_v21, doi_chieu_v21, lenh_lo_v21, rieng_v1 = (
-                                        phan_tich_giao_dich_v21(
-                                            df, trades, trades_v2_audit
+                                        trades_v2_audit = chay_backtest_diem_v2(df)
+                                        tong_hop_v21, doi_chieu_v21, lenh_lo_v21, rieng_v1 = (
+                                            phan_tich_giao_dich_v21(
+                                                df, trades, trades_v2_audit
+                                            )
                                         )
-                                    )
 
-                                    st.markdown("**Thống kê giao dịch đã đóng**")
-                                    st.dataframe(
-                                        tong_hop_v21,
-                                        hide_index=True,
-                                        use_container_width=True,
-                                    )
-
-                                    st.markdown("**Đối chiếu giao dịch V2 với V1**")
-                                    st.dataframe(
-                                        doi_chieu_v21.iloc[::-1].round(2),
-                                        hide_index=True,
-                                        use_container_width=True,
-                                    )
-
-                                    st.markdown("**Giao dịch V2 thua lỗ (lỗ lớn nhất trước)**")
-                                    if lenh_lo_v21.empty:
-                                        st.info("V2 chưa có giao dịch thua lỗ đã đóng.")
-                                    else:
+                                        st.markdown("**Thống kê giao dịch đã đóng**")
                                         st.dataframe(
-                                            lenh_lo_v21.round(2),
+                                            tong_hop_v21,
                                             hide_index=True,
                                             use_container_width=True,
                                         )
 
-                                    st.markdown("**Giao dịch V1 không chồng lấn V2**")
-                                    if rieng_v1.empty:
-                                        st.info("Không có giao dịch V1 riêng không chồng lấn.")
-                                    else:
+                                        st.markdown("**Đối chiếu giao dịch V2 với V1**")
                                         st.dataframe(
-                                            rieng_v1.iloc[::-1].round(2),
+                                            doi_chieu_v21.iloc[::-1].round(2),
                                             hide_index=True,
                                             use_container_width=True,
                                         )
 
-                                    st.caption(
-                                        "Chỉ đối chiếu các giao dịch đã đóng. "
-                                        "Trùng ngày mua khác với chồng lấn thời gian nắm giữ. "
-                                        "Chỉ báo mua lấy tại ngày phát tín hiệu; "
-                                        "không kết luận nguyên nhân thua lỗ hoặc hiệu quả ngoài mẫu."
-                                    )
-                                except Exception as e:
-                                    st.warning(
-                                        "Chưa thể hiển thị phân tích V2.1: "
-                                        f"{type(e).__name__}: {e}"
-                                    )
+                                        st.markdown("**Giao dịch V2 thua lỗ (lỗ lớn nhất trước)**")
+                                        if lenh_lo_v21.empty:
+                                            st.info("V2 chưa có giao dịch thua lỗ đã đóng.")
+                                        else:
+                                            st.dataframe(
+                                                lenh_lo_v21.round(2),
+                                                hide_index=True,
+                                                use_container_width=True,
+                                            )
+
+                                        st.markdown("**Giao dịch V1 không chồng lấn V2**")
+                                        if rieng_v1.empty:
+                                            st.info("Không có giao dịch V1 riêng không chồng lấn.")
+                                        else:
+                                            st.dataframe(
+                                                rieng_v1.iloc[::-1].round(2),
+                                                hide_index=True,
+                                                use_container_width=True,
+                                            )
+
+                                        st.caption(
+                                            "Chỉ đối chiếu các giao dịch đã đóng. "
+                                            "Trùng ngày mua khác với chồng lấn thời gian nắm giữ. "
+                                            "Chỉ báo mua lấy tại ngày phát tín hiệu; "
+                                            "không kết luận nguyên nhân thua lỗ hoặc hiệu quả ngoài mẫu."
+                                        )
+                                    except Exception as e:
+                                        st.warning(
+                                            "Chưa thể hiển thị phân tích V2.1: "
+                                            f"{type(e).__name__}: {e}"
+                                        )
 
                             # SO SANH 5 CHIEN LUOC DOC LAP
                             st.markdown(
-                                "**So sánh Backtesting 5 chiến lược**"
+                                "**So sánh Backtesting " + ("5 chiến lược (gồm lưu trữ)" if show_archived else "3 chiến lược nghiên cứu") + "**"
                             )
 
                             ket_qua = []
 
-                            for ten, bt in [
+                            research_runs = [
                                 ("Chiến lược gốc", trades),
                                 ("Lọc SMA50/SMA200",
                                  chay_backtest_thu_nghiem(df, "sma")),
                                 ("Lọc ADX + DI + MACD",
                                  chay_backtest_thu_nghiem(df, "adx_macd")),
-                                ("Chấm điểm V2",
-                                 chay_backtest_diem_v2(df)),
-                                ("V2.1 - Xác nhận MACD",
-                                 chay_backtest_diem_v21_macd(df))
-                            ]:
+                            ]
+                            if show_archived:
+                                research_runs.extend([
+                                    ("Chấm điểm V2", chay_backtest_diem_v2(df)),
+                                    ("V2.1 - Xác nhận MACD", chay_backtest_diem_v21_macd(df)),
+                                ])
+                            for ten, bt in research_runs:
                                 r = pd.to_numeric(
                                     bt["Lợi nhuận sau chi phí (%)"],
                                     errors="coerce"

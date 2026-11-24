@@ -114,8 +114,8 @@ def trade_metrics(trades):
     }
 
 
-def evaluate_symbol(symbol, df, period_label, start=None, end=None):
-    """Run all five existing backtests independently for one stock.
+def evaluate_symbol(symbol, df, period_label, start=None, end=None, strategies=None):
+    """Run selected existing backtests independently; default preserves legacy API.
 
     Returns (summary rows, errors). A broken strategy does not hide others.
     """
@@ -137,8 +137,13 @@ def evaluate_symbol(symbol, df, period_label, start=None, end=None):
         lambda x: chay_backtest_diem_v2(x),
         lambda x: chay_backtest_diem_v21_macd(x),
     )
+    selected_names = STRATEGY_NAMES if strategies is None else tuple(strategies)
+    if not selected_names or len(set(selected_names)) != len(selected_names) or not set(selected_names).issubset(STRATEGY_NAMES):
+        raise ValueError("Danh sách chiến lược không hợp lệ")
+    runners = dict(zip(STRATEGY_NAMES, strategy_functions))
     rows, errors = [], []
-    for name, runner in zip(STRATEGY_NAMES, strategy_functions):
+    for name in selected_names:
+        runner = runners[name]
         try:
             # Every strategy receives a copy of the SAME fully calculated history.
             # Signal/position states are recomputed over that history.

@@ -7,11 +7,10 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from risk_batch import GROUPS, selected_symbols
-from risk_equity import STRATEGIES
+from strategy_policy import CHOICES, RESEARCH_NOTE, resolve_strategies
 from walk_forward_core import evaluate_walk_forward_case, half_year_windows
 
 
-ALL = "Tất cả 5 chiến lược"
 
 
 def _comparison(summary):
@@ -63,10 +62,11 @@ def render_walk_forward(get_data):
         "Lợi nhuận cửa sổ tính từ Equity cuối phiên trước cửa sổ (nếu có), "
         "bao gồm biến động phiên đầu cửa sổ."
     )
+    st.caption(RESEARCH_NOTE)
     with st.form("walk_forward_run_form"):
         group = st.selectbox("Nhóm cổ phiếu", tuple(GROUPS), key="wf_group")
         custom = st.text_input("Mã tùy chỉnh (khi chọn Tùy chỉnh)", value="HPG, MBB", key="wf_custom")
-        choice = st.selectbox("Chiến lược", (ALL,) + STRATEGIES, key="wf_strategy")
+        choice = st.selectbox("Chiến lược", CHOICES, key="wf_strategy")
         run = st.form_submit_button("Chạy Walk-Forward", type="primary")
 
     if run:
@@ -76,7 +76,7 @@ def render_walk_forward(get_data):
         except ValueError as e:
             st.error(str(e))
         else:
-            strategies = list(STRATEGIES) if choice == ALL else [choice]
+            strategies = resolve_strategies(choice)
             count = len(symbols) * len(strategies)
             rows, summary, errors, charts = [], [], [], {}
             completed = 0
