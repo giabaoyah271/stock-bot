@@ -60,6 +60,10 @@ def render_multi_backtest(get_data):
         from short_term_ui import render_short_term
         render_short_term(get_data)
 
+    with st.expander("KT12 – Kiểm định độ tin cậy", expanded=False):
+        from robustness_ui import render_robustness
+        render_robustness(get_data)
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(

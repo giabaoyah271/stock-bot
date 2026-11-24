@@ -18,6 +18,22 @@ BUY_MULT=(1+SLIPPAGE)*(1+BUY_FEE)
 SELL_MULT=(1-SLIPPAGE)*(1-SELL_FEE-SELL_TAX)
 
 @dataclass(frozen=True)
+class Costs:
+    buy_fee: float=BUY_FEE
+    sell_fee: float=SELL_FEE
+    sell_tax: float=SELL_TAX
+    slippage: float=SLIPPAGE
+    def validate(self):
+        if not all(math.isfinite(x) and 0<=x<1 for x in (self.buy_fee,self.sell_fee,self.sell_tax,self.slippage)) or self.sell_fee+self.sell_tax>=1:
+            raise ValueError("Chi phí không hợp lệ")
+    @property
+    def buy_mult(self):
+        return (1+self.slippage)*(1+self.buy_fee)
+    @property
+    def sell_mult(self):
+        return (1-self.slippage)*(1-self.sell_fee-self.sell_tax)
+
+@dataclass(frozen=True)
 class Policy:
     capital: float=100_000_000
     price_scale: int=1000
@@ -27,7 +43,9 @@ class Policy:
     heat_cap: float=.025
     max_positions: int=5
     lot: int=100
+    costs: Costs=Costs()
     def validate(self):
+        self.costs.validate()
         if not math.isfinite(self.capital) or self.capital<=0 or self.price_scale not in (1,1000):
             raise ValueError("Vốn hoặc đơn vị giá không hợp lệ")
         if not all(math.isfinite(x) and 0<x<=1 for x in (self.risk,self.stock_cap,self.sector_cap,self.heat_cap)):
@@ -51,8 +69,8 @@ def size_order(equity,cash,price,reference,sector_used,heat,policy,mode,dd=0.):
         return 0,0.,"Giá/vốn không hợp lệ"
     if reference<=0 or reference>=price:
         return 0,0.,"Stop tham chiếu không hợp lệ/gap qua Stop"
-    cost=price*BUY_MULT
-    unit_risk=cost-reference*SELL_MULT
+    cost=price*policy.costs.buy_mult
+    unit_risk=cost-reference*policy.costs.sell_mult
     if unit_risk<=0:
         return 0,0.,"Rủi ro đơn vị không hợp lệ"
     limits=[(cash/cost,"Tiền mặt"),
@@ -107,6 +125,8 @@ def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_r
     policy.validate()
     if code not in CANDIDATES or mode not in MODES or not signals or not set(signals).issubset(SECTORS):
         raise ValueError("Danh mục/cấu hình không hợp lệ")
+    if policy.costs!=Costs() and code!="S0P0":
+        raise ValueError("Stress chi phí hiện chỉ hỗ trợ S0P0 (không dùng ngưỡng profit theo phí cũ)")
     symbols=sorted(signals)
     calendar=signals[symbols[0]].index
     if not isinstance(calendar,pd.DatetimeIndex) or not calendar.is_monotonic_increasing or calendar.has_duplicates or calendar.hasnans:
@@ -135,7 +155,7 @@ def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_r
                 d=signals[s]
                 if d["Trend"].iloc[i-2]==1 and d["Trend"].iloc[i-1]==-1:
                     p=positions.pop(s)
-                    proceeds=p["qty"]*opens[s]*SELL_MULT
+                    proceeds=p["qty"]*opens[s]*policy.costs.sell_mult
                     cash+=proceeds
                     turnover+=proceeds
                     pnl=proceeds-p["cost"]
@@ -176,7 +196,7 @@ def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_r
                 if qty==0:
                     orders.append({"Ngày":date,"Mã":s,"Lệnh":"Bỏ mua","Số CP":0,"Lý do":reason})
                     continue
-                cost=qty*opens[s]*BUY_MULT
+                cost=qty*opens[s]*policy.costs.buy_mult
                 if cost>cash+1e-7: raise ValueError("Vi phạm tiền mặt")
                 cash-=cost
                 turnover+=cost
