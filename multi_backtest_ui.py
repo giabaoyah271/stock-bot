@@ -36,6 +36,10 @@ def render_multi_backtest(get_data):
         from trade_diagnostics_ui import render_trade_diagnostics
         render_trade_diagnostics(get_data)
 
+    with st.expander("KT03 – Thử nghiệm Initial Stop Loss", expanded=False):
+        from initial_stop_ui import render_initial_stop
+        render_initial_stop(get_data)
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
