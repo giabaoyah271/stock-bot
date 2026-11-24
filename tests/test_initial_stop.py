@@ -67,6 +67,8 @@ class InitialStopTests(unittest.TestCase):
     def test_reentry_requires_fresh_signal(self):
         df=fixture()
         df.loc[df.index[202],"Buy_Pct"]=70
+        # Fresh buy also needs close strictly above SMA200.
+        df.loc[df.index[202],"SMA200"]=85.0
         t=replay_stop(df,RESEARCH[1],CONFIGS[2])
         self.assertEqual(t["Trend"].iloc[201],-1)
         self.assertEqual(t["Trend"].iloc[202],1)
