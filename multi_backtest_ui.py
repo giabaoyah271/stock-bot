@@ -44,6 +44,10 @@ def render_multi_backtest(get_data):
         from profit_protection_ui import render_profit_protection
         render_profit_protection(get_data)
 
+    with st.expander("KT06 + KT07 – Position Sizing và Portfolio Backtesting", expanded=False):
+        from portfolio_ui import render_portfolio
+        render_portfolio(get_data)
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
