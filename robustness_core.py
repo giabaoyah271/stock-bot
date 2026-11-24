@@ -122,7 +122,7 @@ def benchmarks(signals,context,curve,capital):
     # Fractional, frictionless price-only references. Lagged exposure known at prior close.
     equal=pd.DataFrame({s:d["close"]/d["close"].iloc[0] for s,d in signals.items()}).mean(axis=1)
     values=pd.DataFrame({"A4":curve["Equity"]/capital*100,
-        "VNINDEX":100*c/c.iloc[0],"BuyHold12 giá":100*equal,"Tiền mặt":100.,
+        "VNINDEX":100*c/c.iloc[0],f"BuyHold {len(signals)} mã (giá)":100*equal,"Tiền mặt":100.,
         "VNINDEX lag Exposure":100*(1+exposure*index_return).cumprod(),
         "Exposure trễ (%)":100*exposure},index=curve.index)
     rows=[]
@@ -135,13 +135,16 @@ def benchmarks(signals,context,curve,capital):
                      "Calmar":cagr/mdd if mdd>0 and cagr is not None else None})
     return pd.DataFrame(rows),values.rename_axis("Ngày").reset_index()
 
-def evaluate_robustness(histories,index,policy=Policy(),n_sim=N_SIM):
+def evaluate_robustness(histories,index,policy=Policy(),n_sim=N_SIM,require_reference_calendar=False):
     if policy.costs!=Costs() or policy.risk!=.005 or policy.stock_cap!=.15:
         raise ValueError("KT12 yêu cầu R1 cơ sở")
     histories={s:historical_slice(d) for s,d in histories.items()}
     index=historical_slice(index)
     signals=prepare_signals(histories,"S0P0")
     signals,context=enrich(signals,index)
+    calendar=context.index
+    if require_reference_calendar and (len(calendar)!=1217 or calendar[0]!=pd.Timestamp("2022-01-04") or calendar[-1]!=HISTORY_END):
+        raise ValueError("Lịch hồi cứu khác báo cáo tham chiếu 1.217 phiên (04/01/2022–23/11/2026); kiểm tra dữ liệu nguồn.")
     # KT12 uses frozen historical date even if source already includes later bars.
     results={name:simulate_portfolio(signals,"S0P0","R1",policy,entry_gate=fn)
              for name,fn in candidates(signals).items()}

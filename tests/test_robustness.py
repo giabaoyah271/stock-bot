@@ -71,6 +71,12 @@ class RobustnessTests(unittest.TestCase):
         self.assertEqual(len(r["summary"]),15)
         self.assertEqual(len(r["mc"]),6)
         self.assertEqual(len(r["benchmark"]),5)
+    def test_reference_calendar_required(self):
+        d=fixture(400)
+        d["SMA20"]=95.;d["RSI"]=60.
+        index=pd.DataFrame({"close":np.linspace(1000,1200,len(d))},index=d.index)
+        with self.assertRaisesRegex(ValueError,"Lịch hồi cứu khác"):
+            evaluate_robustness({"HPG":d},index,n_sim=20,require_reference_calendar=True)
     def test_capture_no_backfill(self):
         for now in ("2026-11-24 18:00","2026-11-25 14:00"):
             with self.assertRaises(ValueError): capture_snapshot({},now)

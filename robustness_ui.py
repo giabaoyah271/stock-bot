@@ -36,7 +36,7 @@ def render_robustness(get_data):
                 symbols=selected_symbols(group)
                 histories=_load(symbols,get_data)
                 with st.spinner("Đang chạy KT12..."):
-                    report=evaluate_robustness(histories,get_vnindex(),Policy(price_scale=1000 if units.startswith("Nghìn") else 1))
+                    report=evaluate_robustness(histories,get_vnindex(),Policy(price_scale=1000 if units.startswith("Nghìn") else 1),require_reference_calendar=True)
                 report["symbols"]=symbols
                 st.session_state["kt12_report"]=report
             except Exception as exc:
