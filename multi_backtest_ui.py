@@ -32,6 +32,10 @@ def render_multi_backtest(get_data):
         from walk_forward_ui import render_walk_forward
         render_walk_forward(get_data)
 
+    with st.expander("KT01 + KT02 – Phân tích giao dịch và MAE/MFE", expanded=False):
+        from trade_diagnostics_ui import render_trade_diagnostics
+        render_trade_diagnostics(get_data)
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
