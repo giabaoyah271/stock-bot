@@ -56,7 +56,7 @@ def get_top_100_liquidity():
 TOP_MARKET = get_top_100_liquidity()
 
 # --- 3. TÍNH TOÁN CHỈ BÁO KỸ THUẬT ---
-def calculate_indicators(df):
+def calculate_indicators(df, record_stop=False):
     if df.empty or len(df) < 200: 
         return df
     
@@ -210,6 +210,7 @@ def calculate_indicators(df):
     buy_pcts = []     # THÊM MỚI
     sell_pcts = []    # THÊM MỚI
     reasons = []      # THÊM MỚI
+    stop_values, stop_ages, stop_eligible, stop_exits = [], [], [], []
     current_trend = -1
     entry_price = 0.0
     trailing_stop = 0.0
@@ -223,6 +224,11 @@ def calculate_indicators(df):
             buy_pcts.append(0)
             sell_pcts.append(0)
             reasons.append("Chưa đủ dữ liệu")
+            if record_stop:
+                stop_values.append(np.nan)
+                stop_ages.append(np.nan)
+                stop_eligible.append(False)
+                stop_exits.append(np.nan)
             continue
         buy_score = 0.0
         sell_score = 0.0
@@ -312,6 +318,11 @@ def calculate_indicators(df):
             current_stop = row['close'] - (2 * row['ATR'])
             trailing_stop = max(trailing_stop, current_stop)
             if row['close'] <= trailing_stop and days_in_trade >= 3:
+                if record_stop:
+                    stop_values.append(np.nan)
+                    stop_ages.append(np.nan)
+                    stop_eligible.append(False)
+                    stop_exits.append(trailing_stop)
                 current_trend = -1
                 entry_price = 0.0
                 trailing_stop = 0.0
@@ -346,6 +357,18 @@ def calculate_indicators(df):
                 entry_price = 0.0
                 trailing_stop = 0.0
         trends.append(current_trend)        
+        if record_stop:
+            holding = current_trend == 1
+            age = i - entry_bar if holding else np.nan
+            stop_values.append(trailing_stop if holding else np.nan)
+            stop_ages.append(age)
+            stop_eligible.append(bool(holding and age >= 3))
+            stop_exits.append(np.nan)
+    if record_stop:
+        df['V1_Trailing_Stop'] = stop_values
+        df['V1_Stop_Age'] = stop_ages
+        df['V1_Stop_Eligible'] = stop_eligible
+        df['V1_Stop_Exit'] = stop_exits
     df['Trend'] = trends
     df['Buy_Pct'] = buy_pcts
     df['Sell_Pct'] = sell_pcts
@@ -360,6 +383,16 @@ def get_data(symbol, tf):
             stock = Market(src).equity(symbol)
             df = stock.ohlcv(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
             if df is not None and not df.empty:
+                if tf == 'Ngày':
+                    from daily_data_quality import prepare_daily_data, DataQualityError
+                    try:
+                        daily, report = prepare_daily_data(df)
+                    except DataQualityError as exc:
+                        st.warning(f'{symbol}: Data Quality Gate – {exc}')
+                        return pd.DataFrame()
+                    result = calculate_indicators(daily, record_stop=True)
+                    result.attrs['daily_quality'] = report
+                    return result
                 df['time'] = pd.to_datetime(df['time'])
                 df.set_index('time', inplace=True)
                 return calculate_indicators(df)
@@ -390,7 +423,16 @@ if mode == "Phân tích chi tiết mã":
             f"Phiên dữ liệu cuối: {df.index[-1].strftime('%d/%m/%Y')}"
             " | Dữ liệu lịch sử, không phải giá thời gian thực"
         )
-        latest_date = pd.Timestamp(df.index[-1]).date()
+        if timeframe == 'Ngày':
+            quality = df.attrs.get('daily_quality', {})
+            st.caption(f"Data Quality Gate: ĐẠT | {len(df):,} nến ngày đã kiểm tra trước tính chỉ báo.")
+            if quality.get('trimmed'):
+                st.info('Đã loại nến ngày hiện tại trước 15:15 giờ Việt Nam.')
+            if quality.get('zero_volume'):
+                st.warning(f"Có {quality['zero_volume']} nến khối lượng bằng 0; cần xem xét khả năng khớp lệnh.")
+            latest_date = pd.Timestamp(quality.get('last_date', df.index[-1])).date()
+        else:
+            latest_date = pd.Timestamp(df.index[-1]).date()
         today_vn = pd.Timestamp.now(tz="Asia/Ho_Chi_Minh").date()
         days_old = (today_vn - latest_date).days
 
@@ -862,10 +904,17 @@ if mode == "Phân tích chi tiết mã":
         days_held = len(df.loc[entry_date:])
 
         # Tính toán các mức giá (Bạn có thể tự chỉnh sửa công thức % này theo ý muốn)
-        if is_green:
-            stop_loss = last_price - (2 * last_row['ATR']) 
+        if timeframe == 'Ngày':
+            stop_loss = last_row['V1_Trailing_Stop'] if is_green else np.nan
+            stop_display = f'{stop_loss:.1f}' if pd.notna(stop_loss) else '—'
+            stop_label = 'Trailing Stop V1 (tại đóng cửa)'
         else:
-            stop_loss = 0.0 # Nếu đang ở Vùng Đỏ (đứng ngoài) thì không có giá cắt lỗ 
+            if is_green:
+                stop_loss = last_price - (2 * last_row['ATR'])
+            else:
+                stop_loss = 0.0
+            stop_display = f'{stop_loss:.1f}'
+            stop_label = 'Cắt lỗ/Chốt lãi'
         target_1 = entry_price * 1.1
         target_2 = entry_price * 1.3
         target_3 = entry_price * 1.44
@@ -908,10 +957,21 @@ if mode == "Phân tích chi tiết mã":
             st.markdown(f"""
                 <div style='background-color: rgba(128, 128, 128, 0.1); padding: 15px; border-radius: 10px; text-align: center;'>
                     <p style='margin:0; font-weight: bold;'>QUẢN TRỊ RỦI RO</p>
-                    <h2 style='margin:0; color: #ff4b4b;'>{stop_loss:.1f}</h2>
-                    <p style='margin:0; color: gray;'>Cắt lỗ/Chốt lãi</p>
+                    <h2 style='margin:0; color: #ff4b4b;'>{stop_display}</h2>
+                    <p style='margin:0; color: gray;'>{stop_label}</p>
                 </div>
             """, unsafe_allow_html=True)
+
+        if timeframe == "Ngày":
+            if is_green:
+                age = int(last_row["V1_Stop_Age"])
+                if last_row["V1_Stop_Eligible"]:
+                    st.caption(f"Trailing Stop V1 đã đủ điều kiện kiểm tra (offset {age} nến từ tín hiệu mua).")
+                else:
+                    st.warning(f"Trailing Stop V1 chưa đủ điều kiện kích hoạt: offset {age}/3 nến từ tín hiệu mua. Tín hiệu bán kỹ thuật vẫn có thể xuất hiện.")
+            elif pd.notna(last_row["V1_Stop_Exit"]):
+                st.caption(f"V1 vừa phát tín hiệu thoát theo Trailing Stop tại ngưỡng {last_row['V1_Stop_Exit']:.1f}.")
+            st.caption("Ngưỡng theo giá đóng cửa của V1, không phải giá khớp đảm bảo; mô phỏng khớp open nến tiếp theo.")
 
         # 3. Mục tiêu dự kiến dàn hàng ngang bên dưới
         st.write("") # Tạo khoảng cách nhỏ
@@ -932,6 +992,11 @@ if mode == "Phân tích chi tiết mã":
         fig.add_trace(go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'], name="Nến giá"), row=1, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], line=dict(color='cyan', width=1.5), name="SMA20"), row=1, col=1)
         
+        if timeframe == "Ngày":
+            fig.add_trace(go.Scatter(x=df.index, y=df["V1_Trailing_Stop"], mode="lines",
+                line=dict(color="orange", width=1.5, dash="dot"), connectgaps=False,
+                name="Trailing Stop V1"), row=1, col=1)
+
         # MŨI TÊN TÍN HIỆU MUA/BÁN
         buy_signals = df[(df['Trend'] == 1) & (df['Trend'].shift(1) == -1)]
         sell_signals = df[(df['Trend'] == -1) & (df['Trend'].shift(1) == 1)]
