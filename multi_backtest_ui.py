@@ -56,6 +56,10 @@ def render_multi_backtest(get_data):
         from market_research_ui import render_market_research
         render_market_research(get_data)
 
+    with st.expander("KT11 – Short-term Trading", expanded=False):
+        from short_term_ui import render_short_term
+        render_short_term(get_data)
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
