@@ -99,7 +99,7 @@ def _reference(code,open_price,previous):
     if code.startswith("S5"): return open_price-1.5*float(previous["ATR"])
     return float(previous["close"])-2*float(previous["ATR"])
 
-def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None):
+def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_rank=None):
     """Open exits first, then ranked new entries; close marks equity.
     Rejected buy is ignored until a later fresh -1→1 signal.
     All quotes and orders are hypothetical; no real orders are sent.
@@ -149,7 +149,10 @@ def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None):
                     orders.append({"Ngày":date,"Mã":s,"Lệnh":"Bán","Số CP":p["qty"],"Lý do":""})
             candidates=[s for s in symbols if s not in positions and signals[s]["Trend"].iloc[i-2]==-1 and signals[s]["Trend"].iloc[i-1]==1]
             # Rank using ONLY signal-close score, deterministic ticker tie-break.
-            candidates.sort(key=lambda s:(-float(signals[s]["Buy_Pct"].iloc[i-1]),s))
+            if entry_rank is None:
+                candidates.sort(key=lambda s:(-float(signals[s]["Buy_Pct"].iloc[i-1]),s))
+            else:
+                candidates.sort(key=lambda s:entry_rank(s,signals[s].iloc[i-1].copy()))
             for s in candidates:
                 # Optional research gate reads only the completed signal row.
                 # Keep legacy Trend unchanged: a rejected signal is not chased.
