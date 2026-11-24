@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
-from daily_data_quality import prepare_daily_data, DataQualityError
+from daily_data_quality import prepare_daily_data, DataQualityError, slice_raw_history
 from backtesting import tao_bang_giao_dich
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,6 +61,29 @@ class DailyGateTests(unittest.TestCase):
         raw.loc[5,"high"]=raw.loc[5,"close"]-1
         with self.assertRaises(DataQualityError):
             prepare_daily_data(raw,NOW)
+    def test_ohlc_error_has_exact_date_and_values(self):
+        raw=raw_history()
+        raw.loc[5,"high"]=raw.loc[5,"close"]-1
+        with self.assertRaises(DataQualityError) as caught:
+            prepare_daily_data(raw,NOW)
+        msg=str(caught.exception)
+        self.assertIn(str(raw.loc[5,"time"].date()),msg)
+        self.assertIn("O=",msg)
+        self.assertIn("H=",msg)
+        self.assertIn("L=",msg)
+        self.assertIn("C=",msg)
+    def test_frozen_slice_excludes_only_later_bars(self):
+        raw=raw_history()
+        raw.loc[239,"high"]=0.1
+        cutoff=raw.loc[238,"time"].date().isoformat()
+        saved=raw.copy(deep=True)
+        sliced=slice_raw_history(raw,cutoff)
+        assert_frame_equal(sliced,raw.iloc[:239])
+        assert_frame_equal(raw,saved)
+        self.assertEqual(len(prepare_daily_data(sliced,NOW)[0]),239)
+        raw.loc[5,"high"]=0.1
+        with self.assertRaises(DataQualityError):
+            prepare_daily_data(slice_raw_history(raw,cutoff),NOW)
     def test_duplicate_and_unsorted(self):
         raw=raw_history()
         with self.assertRaises(DataQualityError):
@@ -116,6 +139,20 @@ class LoaderIntegrationTests(unittest.TestCase):
         self.assertTrue(loader("HPG","Ngày").empty)
         indicator.assert_not_called()
         st.warning.assert_called_once()
+    def test_kt15_cutoff_before_indicators(self):
+        raw=raw_history()
+        raw.loc[239,"high"]=0.1
+        loader,indicator,st=self.loader(raw)
+        out=loader("ACV","Ngày",history_end=str(raw.loc[238,"time"].date()))
+        self.assertEqual(len(out),239)
+        indicator.assert_called_once()
+        st.warning.assert_not_called()
+        raw.loc[5,"high"]=0.1
+        loader,indicator,st=self.loader(raw)
+        out=loader("ACV","Ngày",history_end=str(raw.loc[238,"time"].date()))
+        self.assertTrue(out.empty)
+        self.assertIn(str(raw.loc[5,"time"].date()),out.attrs["daily_quality_error"])
+        indicator.assert_not_called()
     def test_valid_daily_passes_gate_and_records_stop(self):
         loader,indicator,st=self.loader(raw_history())
         out=loader("HPG","Ngày")

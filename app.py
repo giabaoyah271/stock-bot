@@ -377,19 +377,23 @@ def calculate_indicators(df, record_stop=False):
 
 # --- 4. HÀM LẤY DỮ LIỆU ---
 @st.cache_data(ttl=600)
-def get_data(symbol, tf):
+def get_data(symbol, tf, history_end=None):
     for src in ['tcbs']:
         try:
             stock = Market(src).equity(symbol)
             df = stock.ohlcv(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
             if df is not None and not df.empty:
                 if tf == 'Ngày':
-                    from daily_data_quality import prepare_daily_data, DataQualityError
+                    from daily_data_quality import prepare_daily_data, DataQualityError, slice_raw_history
                     try:
+                        if history_end is not None:
+                            df = slice_raw_history(df, history_end)
                         daily, report = prepare_daily_data(df)
                     except DataQualityError as exc:
                         st.warning(f'{symbol}: Data Quality Gate – {exc}')
-                        return pd.DataFrame()
+                        empty = pd.DataFrame()
+                        empty.attrs["daily_quality_error"] = str(exc)
+                        return empty
                     result = calculate_indicators(daily, record_stop=True)
                     result.attrs['daily_quality'] = report
                     return result

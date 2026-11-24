@@ -14,6 +14,27 @@ MIN_BARS = 200
 class DataQualityError(ValueError):
     """Safe, user-facing validation error; never contains provider credentials."""
 
+def slice_raw_history(raw, history_end):
+    """KT15 only: truncate before validation/indicators; never modify OHLC."""
+    if not isinstance(raw,pd.DataFrame) or raw.empty:
+        return raw
+    if raw.columns.has_duplicates or "time" not in raw or pd.api.types.is_numeric_dtype(raw["time"]):
+        raise DataQualityError("Thời gian nguồn không hợp lệ")
+    try:
+        ts=pd.DatetimeIndex(pd.to_datetime(raw["time"],errors="raise"))
+        if ts.hasnans or ts.has_duplicates or not ts.is_monotonic_increasing:
+            raise ValueError("invalid time")
+        local=ts.tz_convert(MARKET_TZ).tz_localize(None) if ts.tz is not None else ts
+        if local.normalize().has_duplicates:
+            raise ValueError("duplicate local day")
+        cutoff=pd.Timestamp(history_end)
+        if cutoff.tzinfo is not None:
+            cutoff=cutoff.tz_convert(MARKET_TZ).tz_localize(None)
+        if pd.isna(cutoff): raise ValueError("invalid cutoff")
+    except (ValueError,TypeError,OverflowError):
+        raise DataQualityError("Thời gian nguồn hoặc mốc cắt không hợp lệ") from None
+    return raw.loc[local.normalize()<=cutoff.normalize()].copy()
+
 def prepare_daily_data(raw, now=None):
     if not isinstance(raw, pd.DataFrame) or raw.empty:
         raise DataQualityError("Không có dữ liệu OHLCV")
@@ -56,7 +77,11 @@ def prepare_daily_data(raw, now=None):
     bad_range = ((o["high"] < o[["open","close","low"]].max(axis=1)) |
                  (o["low"] > o[["open","close"]].min(axis=1)))
     if bad_range.any():
-        raise DataQualityError(f"{int(bad_range.sum())} nến có OHLC không nhất quán")
+        details=[]
+        for k in np.flatnonzero(bad_range.to_numpy())[:5]:
+            row=o.iloc[k]
+            details.append(f"{local[k].date().isoformat()}: O={row['open']:.17g}, H={row['high']:.17g}, L={row['low']:.17g}, C={row['close']:.17g}, V={row['volume']:.17g}")
+        raise DataQualityError(f"{int(bad_range.sum())} nến có OHLC không nhất quán | "+"; ".join(details))
     if (o["volume"] < 0).any():
         raise DataQualityError(f"{int((o['volume'] < 0).sum())} nến khối lượng âm")
     for col in OHLCV:

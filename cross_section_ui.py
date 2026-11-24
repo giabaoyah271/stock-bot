@@ -29,8 +29,14 @@ def render_cross_section(get_data):
                 progress=st.progress(0,text="Đang tải dữ liệu...")
                 try:
                     for i,s in enumerate(symbols):
-                        try: histories[s],_=completed_daily_history(get_data(s,"Ngày"))
-                        except Exception as exc: errors[s]=type(exc).__name__
+                        try:
+                            raw = get_data(s,"Ngày",history_end="2026-11-23")
+                            if raw.empty:
+                                errors[s]=raw.attrs.get("daily_quality_error","Không có dữ liệu TCBS")
+                            else:
+                                histories[s],_=completed_daily_history(raw)
+                        except Exception as exc:
+                            errors[s]=str(exc)[:300] if isinstance(exc,ValueError) else type(exc).__name__
                         progress.progress((i+1)/len(symbols),text=f"Đã xử lý {s} ({i+1}/{len(symbols)})")
                 finally:
                     progress.empty()

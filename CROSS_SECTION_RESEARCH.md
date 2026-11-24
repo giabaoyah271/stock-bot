@@ -12,3 +12,5 @@ Sources for dates:
 - https://www.bsc.com.vn/tin-tuc/tin-tuc-ma-co-phieu/1308470/vpl-thong-bao-ve-viec-niem-yet-va-ngay-giao-dich-dau-tien/
 - https://www.phs.vn/tin-tuc/bsr-an-dinh-ngay-dua-31-ty-cp-len-hose-cong-bo-ke-hoach-2025/6227099
 - https://www.phs.vn/tin-tuc/mch-chot-ngay-len-hose-vao-2512-gia-tham-chieu-212800-dongcp/6352774
+
+KT15 requests the existing daily loader with history_end=2026-11-23. Raw timestamps are checked before truncating; bars strictly after the frozen cutoff cannot block the retrospective run or enter indicator calculations. All OHLC checks within the cutoff remain strict. OHLC range failures report the first five offending local dates and full-precision OHLCV values; empty rejected frames retain a safe diagnostic attr for KT15 errors/ZIP. No price repair, no gap exemption, no change to default daily/hour/week calls.
