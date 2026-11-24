@@ -99,7 +99,7 @@ def _reference(code,open_price,previous):
     if code.startswith("S5"): return open_price-1.5*float(previous["ATR"])
     return float(previous["close"])-2*float(previous["ATR"])
 
-def simulate_portfolio(signals,code,mode,policy=Policy()):
+def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None):
     """Open exits first, then ranked new entries; close marks equity.
     Rejected buy is ignored until a later fresh -1→1 signal.
     All quotes and orders are hypothetical; no real orders are sent.
@@ -151,6 +151,14 @@ def simulate_portfolio(signals,code,mode,policy=Policy()):
             # Rank using ONLY signal-close score, deterministic ticker tie-break.
             candidates.sort(key=lambda s:(-float(signals[s]["Buy_Pct"].iloc[i-1]),s))
             for s in candidates:
+                # Optional research gate reads only the completed signal row.
+                # Keep legacy Trend unchanged: a rejected signal is not chased.
+                if entry_gate is not None:
+                    rejection = entry_gate(s, signals[s].iloc[i-1].copy())
+                    if rejection:
+                        orders.append({"Ngày":date,"Mã":s,"Lệnh":"Bỏ mua","Số CP":0,
+                                       "Lý do":rejection,"Nhóm từ chối":"Bộ lọc điểm mua"})
+                        continue
                 if len(positions)>=policy.max_positions:
                     orders.append({"Ngày":date,"Mã":s,"Lệnh":"Bỏ mua","Số CP":0,"Lý do":"Giới hạn vị thế"})
                     continue

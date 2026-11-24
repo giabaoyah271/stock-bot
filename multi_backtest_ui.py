@@ -48,6 +48,10 @@ def render_multi_backtest(get_data):
         from portfolio_ui import render_portfolio
         render_portfolio(get_data)
 
+    with st.expander("KT14 + KT10 – Volatility và Anti-chasing Filter", expanded=False):
+        from entry_filter_ui import render_entry_filters
+        render_entry_filters(get_data)
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
