@@ -40,6 +40,10 @@ def render_multi_backtest(get_data):
         from initial_stop_ui import render_initial_stop
         render_initial_stop(get_data)
 
+    with st.expander("KT13 – Thử nghiệm Profit Protection", expanded=False):
+        from profit_protection_ui import render_profit_protection
+        render_profit_protection(get_data)
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
