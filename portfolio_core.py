@@ -117,24 +117,32 @@ def _reference(code,open_price,previous):
     if code.startswith("S5"): return open_price-1.5*float(previous["ATR"])
     return float(previous["close"])-2*float(previous["ATR"])
 
-def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_rank=None):
+def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_rank=None,session_calendar=None,sector_map=None):
     """Open exits first, then ranked new entries; close marks equity.
     Rejected buy is ignored until a later fresh -1→1 signal.
     All quotes and orders are hypothetical; no real orders are sent.
     """
     policy.validate()
-    if code not in CANDIDATES or mode not in MODES or not signals or not set(signals).issubset(SECTORS):
+    sectors=SECTORS if sector_map is None else sector_map
+    extended=session_calendar is not None
+    if code not in CANDIDATES or mode not in MODES or not signals or not set(signals).issubset(sectors):
         raise ValueError("Danh mục/cấu hình không hợp lệ")
     if policy.costs!=Costs() and code!="S0P0":
         raise ValueError("Stress chi phí hiện chỉ hỗ trợ S0P0 (không dùng ngưỡng profit theo phí cũ)")
     symbols=sorted(signals)
-    calendar=signals[symbols[0]].index
-    if not isinstance(calendar,pd.DatetimeIndex) or not calendar.is_monotonic_increasing or calendar.has_duplicates or calendar.hasnans:
+    calendar=signals[symbols[0]].index if not extended else session_calendar
+    if not isinstance(calendar,pd.DatetimeIndex) or calendar.empty or not calendar.is_monotonic_increasing or calendar.has_duplicates or calendar.hasnans:
         raise ValueError("Lịch phiên không hợp lệ")
+    offsets={}
     for s in symbols:
         d=signals[s]
-        if not d.index.equals(calendar) or not {"Trend","open","close","ATR","Buy_Pct"}.issubset(d.columns):
+        valid_calendar=d.index.equals(calendar) if not extended else (
+            isinstance(d.index,pd.DatetimeIndex) and not d.empty and
+            d.index.is_monotonic_increasing and not d.index.has_duplicates and
+            not d.index.hasnans and d.index.isin(calendar).all() and d.index[-1]==calendar[-1])
+        if not valid_calendar or not {"Trend","open","close","ATR","Buy_Pct"}.issubset(d.columns):
             raise ValueError("Lịch hoặc tín hiệu không đồng nhất")
+        offsets[s]=d.index.get_indexer(calendar)
         prices=d[["open","close"]].to_numpy(dtype=float)
         if not np.isfinite(prices).all() or (prices<=0).any() or not d["Trend"].isin([-1,1]).all():
             raise ValueError("Giá hoặc trạng thái không hợp lệ")
@@ -144,40 +152,51 @@ def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_r
     peak=previous_equity=cash
     turnover=0.
     scale=policy.price_scale
+    last_close={}
     for i,date in enumerate(calendar):
-        opens={s:float(signals[s]["open"].iloc[i])*scale for s in symbols}
-        closes={s:float(signals[s]["close"].iloc[i])*scale for s in symbols}
+        loc={s:int(offsets[s][i]) for s in symbols}
+        trading=[s for s in symbols if loc[s]>=0]
+        opens={s:float(signals[s]["open"].iloc[loc[s]])*scale for s in trading}
+        closes={s:float(signals[s]["close"].iloc[loc[s]])*scale for s in trading}
+        # KT15 authorizes missing sessions upstream. Carry real close
+        # for valuation only, never use it to execute a trade.
+        for s in positions:
+            if s not in opens:
+                opens[s]=closes[s]=last_close[s]
+        stale=sum(s not in trading for s in positions)
+        last_close.update({s:closes[s] for s in trading})
         prev_dd=max(0.,1-previous_equity/peak)
         def equity_at_open():
             return cash+sum(p["qty"]*opens[s] for s,p in positions.items())
         if i>=2:
             for s in list(positions):
                 d=signals[s]
-                if d["Trend"].iloc[i-2]==1 and d["Trend"].iloc[i-1]==-1:
+                j=loc[s]
+                if j>=2 and d["Trend"].iloc[j-2]==1 and d["Trend"].iloc[j-1]==-1:
                     p=positions.pop(s)
                     proceeds=p["qty"]*opens[s]*policy.costs.sell_mult
                     cash+=proceeds
                     turnover+=proceeds
                     pnl=proceeds-p["cost"]
-                    trades.append({"Mã":s,"Ngành":SECTORS[s],"Ngày tín hiệu mua":p["signal"],
-                        "Ngày mua":p["date"],"Ngày bán":date,"Ngày tín hiệu bán":calendar[i-1],
+                    trades.append({"Mã":s,"Ngành":sectors[s],"Ngày tín hiệu mua":p["signal"],
+                        "Ngày mua":p["date"],"Ngày bán":date,"Ngày tín hiệu bán":d.index[j-1],
                         "Số CP":p["qty"],"Open mua (VND)":p["open"],"Open bán (VND)":opens[s],
                         "Vốn mua (VND)":p["cost"],"Thu bán (VND)":proceeds,"Lãi/lỗ (VND)":pnl,
                         "Lợi nhuận ròng (%)":100*pnl/p["cost"],"Rủi ro ban đầu (VND)":p["risk"],
                         "Lỗ vượt ngân sách":pnl<-p["risk"],"Số phiên giữ":i-p["i"],
-                        "Lý do bán":str(d["Reason"].iloc[i-1]) if "Reason" in d else ""})
+                        "Lý do bán":str(d["Reason"].iloc[j-1]) if "Reason" in d else ""})
                     orders.append({"Ngày":date,"Mã":s,"Lệnh":"Bán","Số CP":p["qty"],"Lý do":""})
-            candidates=[s for s in symbols if s not in positions and signals[s]["Trend"].iloc[i-2]==-1 and signals[s]["Trend"].iloc[i-1]==1]
+            candidates=[s for s in trading if s not in positions and loc[s]>=2 and signals[s]["Trend"].iloc[loc[s]-2]==-1 and signals[s]["Trend"].iloc[loc[s]-1]==1]
             # Rank using ONLY signal-close score, deterministic ticker tie-break.
             if entry_rank is None:
-                candidates.sort(key=lambda s:(-float(signals[s]["Buy_Pct"].iloc[i-1]),s))
+                candidates.sort(key=lambda s:(-float(signals[s]["Buy_Pct"].iloc[loc[s]-1]),s))
             else:
-                candidates.sort(key=lambda s:entry_rank(s,signals[s].iloc[i-1].copy()))
+                candidates.sort(key=lambda s:entry_rank(s,signals[s].iloc[loc[s]-1].copy()))
             for s in candidates:
                 # Optional research gate reads only the completed signal row.
                 # Keep legacy Trend unchanged: a rejected signal is not chased.
                 if entry_gate is not None:
-                    rejection = entry_gate(s, signals[s].iloc[i-1].copy())
+                    rejection = entry_gate(s, signals[s].iloc[loc[s]-1].copy())
                     if rejection:
                         orders.append({"Ngày":date,"Mã":s,"Lệnh":"Bỏ mua","Số CP":0,
                                        "Lý do":rejection,"Nhóm từ chối":"Bộ lọc điểm mua"})
@@ -186,9 +205,9 @@ def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_r
                     orders.append({"Ngày":date,"Mã":s,"Lệnh":"Bỏ mua","Số CP":0,"Lý do":"Giới hạn vị thế"})
                     continue
                 eq=equity_at_open()
-                sector_used=sum(p["qty"]*opens[t] for t,p in positions.items() if SECTORS[t]==SECTORS[s])
+                sector_used=sum(p["qty"]*opens[t] for t,p in positions.items() if sectors[t]==sectors[s])
                 heat=sum(p["risk"] for p in positions.values())
-                prev=signals[s].iloc[i-1].copy()
+                prev=signals[s].iloc[loc[s]-1].copy()
                 prev["close"]*=scale
                 prev["ATR"]*=scale
                 reference=_reference(code,opens[s],prev)
@@ -201,7 +220,7 @@ def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_r
                 cash-=cost
                 turnover+=cost
                 positions[s]={"qty":qty,"cost":cost,"risk":qty*unit_risk,"i":i,"date":date,
-                              "signal":calendar[i-1],"open":opens[s]}
+                              "signal":signals[s].index[loc[s]-1],"open":opens[s]}
                 orders.append({"Ngày":date,"Mã":s,"Lệnh":"Mua","Số CP":qty,"Lý do":"",
                     "Vốn mua (VND)":cost,"Rủi ro dự kiến (VND)":qty*unit_risk,
                     "Equity trước mua (VND)":eq,"Stop tham chiếu (VND)":reference,
@@ -213,7 +232,7 @@ def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_r
         peak=max(peak,equity)
         sector_values={}
         for s,p in positions.items():
-            sector_values[SECTORS[s]]=sector_values.get(SECTORS[s],0.)+p["qty"]*closes[s]
+            sector_values[sectors[s]]=sector_values.get(sectors[s],0.)+p["qty"]*closes[s]
         daily.append({"Ngày":date,"Equity":equity,"Tiền mặt":cash,"Giá trị vị thế":market_value,
                       "Drawdown (%)":100*(equity/peak-1),"Số vị thế":len(positions),
                       "Exposure (%)":100*market_value/equity,
@@ -221,6 +240,9 @@ def simulate_portfolio(signals,code,mode,policy=Policy(),entry_gate=None,entry_r
                       "Tỷ trọng mã lớn nhất (%)":100*max([p["qty"]*closes[s] for s,p in positions.items()] or [0])/equity,
                       "Tỷ trọng ngành lớn nhất (%)":100*max(sector_values.values(),default=0)/equity,
                       "Hệ số DD áp dụng":dd_multiplier(prev_dd) if mode=="R2" else 1.})
+        if extended:
+            daily[-1]["Số mã có nến"]=len(trading)
+            daily[-1]["Vị thế định giá Close cũ"]=stale
         previous_equity=equity
     curve=pd.DataFrame(daily).set_index("Ngày")
     ledger=pd.DataFrame(trades)
