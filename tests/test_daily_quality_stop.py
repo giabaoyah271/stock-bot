@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
-from daily_data_quality import prepare_daily_data, DataQualityError, slice_raw_history
+from daily_data_quality import prepare_daily_data, DataQualityError, slice_raw_history, prepare_kt15_acv
 from backtesting import tao_bang_giao_dich
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,6 +84,24 @@ class DailyGateTests(unittest.TestCase):
         raw.loc[5,"high"]=0.1
         with self.assertRaises(DataQualityError):
             prepare_daily_data(slice_raw_history(raw,cutoff),NOW)
+    def test_acv_exact_anomaly_quarantine(self):
+        raw=raw_history(500)
+        raw["time"]=pd.bdate_range("2022-01-04",periods=len(raw))
+        k=raw.index[raw["time"]==pd.Timestamp("2022-06-16")][0]
+        raw.loc[k,["open","high","low","close","volume"]]=[48.97,49.09,48.85,48.76,37101]
+        original=raw.copy(deep=True)
+        with self.assertRaises(DataQualityError): prepare_daily_data(raw,NOW)
+        d,report=prepare_kt15_acv(raw,NOW)
+        self.assertEqual(report["kt15_acv_quarantine"]["excluded_bars"],k+1)
+        self.assertEqual(d.index[0],raw.loc[k+1,"time"])
+        assert_frame_equal(d,prepare_daily_data(raw.iloc[k+1:],NOW)[0])
+        assert_frame_equal(raw,original)
+        raw.loc[k,"close"]=48.70
+        with self.assertRaises(DataQualityError): prepare_kt15_acv(raw,NOW)
+        raw.loc[k,"close"]=48.85
+        d,report=prepare_kt15_acv(raw,NOW)
+        self.assertEqual(len(d),len(raw))
+        self.assertNotIn("kt15_acv_quarantine",report)
     def test_duplicate_and_unsorted(self):
         raw=raw_history()
         with self.assertRaises(DataQualityError):

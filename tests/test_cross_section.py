@@ -20,6 +20,15 @@ class CrossSectionTests(unittest.TestCase):
         self.assertNotIn(pd.Timestamp("2025-01-09"),expected_dates("BSR",cal))
         self.assertNotIn(pd.Timestamp("2025-12-22"),expected_dates("MCH",cal))
         self.assertTrue(expected_dates("HPG",cal).equals(cal))
+    def test_acv_quarantine_explicit_and_calendar(self):
+        cal=pd.bdate_range("2022-01-04","2026-11-23")
+        self.assertEqual(expected_dates("ACV",cal)[0],cal[0])
+        self.assertEqual(expected_dates("ACV",cal,True)[0],pd.Timestamp("2022-06-17"))
+        self.assertTrue(expected_dates("HPG",cal,True).equals(cal))
+        d=fixture(400)
+        d.attrs["daily_quality"]={"kt15_acv_quarantine":{"date":"2022-06-16","ohlcv":[48.97,49.09,48.85,48.76,37101]}}
+        with self.assertRaisesRegex(ValueError,"chưa được cho phép"):
+            prepare_one("ACV",d,d.index)
     def test_unknown_gap_rejected(self):
         d=fixture(400)
         with self.assertRaisesRegex(ValueError,"Thiếu 1"):

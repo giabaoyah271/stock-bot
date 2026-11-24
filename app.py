@@ -377,18 +377,21 @@ def calculate_indicators(df, record_stop=False):
 
 # --- 4. HÀM LẤY DỮ LIỆU ---
 @st.cache_data(ttl=600)
-def get_data(symbol, tf, history_end=None):
+def get_data(symbol, tf, history_end=None, kt15_acv_quarantine=False):
     for src in ['tcbs']:
         try:
             stock = Market(src).equity(symbol)
             df = stock.ohlcv(start='2022-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval=TF_MAP[tf])
             if df is not None and not df.empty:
                 if tf == 'Ngày':
-                    from daily_data_quality import prepare_daily_data, DataQualityError, slice_raw_history
+                    from daily_data_quality import prepare_daily_data, DataQualityError, slice_raw_history, prepare_kt15_acv
                     try:
                         if history_end is not None:
                             df = slice_raw_history(df, history_end)
-                        daily, report = prepare_daily_data(df)
+                        if kt15_acv_quarantine and symbol=="ACV" and history_end=="2026-11-23":
+                            daily, report = prepare_kt15_acv(df)
+                        else:
+                            daily, report = prepare_daily_data(df)
                     except DataQualityError as exc:
                         st.warning(f'{symbol}: Data Quality Gate – {exc}')
                         empty = pd.DataFrame()
@@ -396,6 +399,8 @@ def get_data(symbol, tf, history_end=None):
                         return empty
                     result = calculate_indicators(daily, record_stop=True)
                     result.attrs['daily_quality'] = report
+                    if report.get("kt15_acv_quarantine"):
+                        st.warning("ACV: KT15 bổ sung — bỏ lịch sử đến 16/06/2022, khởi tạo lại từ nến thực kế tiếp. Không sửa giá; không phải mẫu đầy đủ.")
                     return result
                 df['time'] = pd.to_datetime(df['time'])
                 df.set_index('time', inplace=True)

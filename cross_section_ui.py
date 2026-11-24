@@ -17,6 +17,7 @@ def render_cross_section(get_data):
         chosen=st.multiselect("Nhóm kiểm định",list(GROUPS),default=["U0"],key="kt15_groups")
         units=st.radio("Đơn vị giá cổ phiếu TCBS",["Nghìn đồng (25.0 = 25.000 VND)","Đồng (25000 = 25.000 VND)"],key="kt15_units")
         confirmed=st.checkbox("Tôi đã kiểm tra đơn vị giá nguồn",key="kt15_confirm")
+        quarantine=st.checkbox("Cho phép kiểm định bổ sung nếu ACV còn lỗi 16/06/2022: bỏ prefix đến ngày lỗi, khởi tạo lại 200 nến (không sửa giá)",key="kt15_acv_quarantine",value=False)
         run=st.form_submit_button("Chạy KT15",type="primary")
     if run:
         st.session_state.pop("kt15_report",None)
@@ -30,7 +31,7 @@ def render_cross_section(get_data):
                 try:
                     for i,s in enumerate(symbols):
                         try:
-                            raw = get_data(s,"Ngày",history_end="2026-11-23")
+                            raw = get_data(s,"Ngày",history_end="2026-11-23",kt15_acv_quarantine=quarantine and s=="ACV")
                             if raw.empty:
                                 errors[s]=raw.attrs.get("daily_quality_error","Không có dữ liệu TCBS")
                             else:
@@ -41,7 +42,7 @@ def render_cross_section(get_data):
                 finally:
                     progress.empty()
                 with st.spinner("Đang kiểm định danh mục và Monte Carlo..."):
-                    report=evaluate_cross_section(histories,index,tuple(chosen),Policy(price_scale=1000 if units.startswith("Nghìn") else 1),load_errors=errors)
+                    report=evaluate_cross_section(histories,index,tuple(chosen),Policy(price_scale=1000 if units.startswith("Nghìn") else 1),load_errors=errors,allow_acv_quarantine=quarantine)
                 report["expected"]=5*len(chosen)
                 st.session_state["kt15_report"]=report
             except Exception as exc:
@@ -50,6 +51,8 @@ def render_cross_section(get_data):
     if report is None: return
     summary=report["summary"]
     st.caption(f"Hoàn thành {len(summary)}/{report['expected']} kịch bản")
+    if not summary.empty and summary["Phạm vi ACV"].str.startswith("Rút ngắn").any():
+        st.warning("Có kịch bản bổ sung ACV rút ngắn. Không nghiệm thu mẫu ACV đầy đủ; xem cột Phạm vi ACV và báo cáo chất lượng.")
     if not report["errors"].empty:
         st.warning("Báo cáo chưa đầy đủ; các nhóm bị lỗi không được nghiệm thu.")
         st.dataframe(report["errors"],hide_index=True,use_container_width=True)

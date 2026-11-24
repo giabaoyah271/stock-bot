@@ -10,6 +10,7 @@ from trade_diagnostics import _validate
 from entry_filter_core import BY_FILTER,reject_reason,signal_catalog
 from robustness_core import HISTORY_END,COSTS,BLOCKS,N_SIM,block_bootstrap,stats_equity,historical_slice
 from market_research_core import market_context
+from daily_data_quality import ACV_BAD_DAY, ACV_BAD_OHLCV
 
 U0=("HPG","MBB","FPT","TCB","MWG","VNM","ACB","DGC","GAS","GMD","PNJ","REE")
 U1=("VIC","VHM","VCB","CTG","BID","VPB","VGI","HPG","MCH","VPL","GAS","MBB","TCB","HDB","STB","ACV","BSR","ACB","GVR","VNM")
@@ -33,20 +34,38 @@ def local_index(index):
     if local.has_duplicates: raise ValueError("Trùng ngày VN")
     return local
 
-def expected_dates(symbol,calendar):
+def expected_dates(symbol,calendar,acv_quarantine=False):
     dates=calendar[calendar>=STARTS.get(symbol,calendar[0])]
+    if symbol=="ACV" and acv_quarantine:
+        dates=dates[dates>ACV_BAD_DAY]
     if symbol in PAUSES:
         a,b=map(pd.Timestamp,PAUSES[symbol])
         dates=dates[~((dates>=a)&(dates<=b))]
     return dates
 
-def prepare_one(symbol,df,calendar):
+def quarantine_info(symbol,df,allowed):
+    q=df.attrs.get("daily_quality",{}).get("kt15_acv_quarantine") if df is not None else None
+    if q is None: return None
+    if not allowed or symbol!="ACV" or q.get("date")!=ACV_BAD_DAY.date().isoformat():
+        raise ValueError("ACV rút ngắn chưa được cho phép hoặc metadata sai")
+    try:
+        values=np.asarray(q["ohlcv"],dtype=float)
+        valid=values.shape==(5,) and np.allclose(values,ACV_BAD_OHLCV,rtol=0,atol=1e-8)
+    except (KeyError,TypeError,ValueError):
+        valid=False
+    if not valid: raise ValueError("Nến ACV không khớp lỗi đã ghi nhận")
+    return q
+
+def prepare_one(symbol,df,calendar,allow_acv_quarantine=False):
     if symbol not in EXT_SECTORS: raise ValueError("Mã ngoài danh sách")
     if df is None or df.empty: raise ValueError("Không có dữ liệu TCBS")
     d=historical_slice(df)
     _validate(d)
     d.index=local_index(d.index)
-    exp=expected_dates(symbol,calendar)
+    q=quarantine_info(symbol,d,allow_acv_quarantine)
+    exp=expected_dates(symbol,calendar,bool(q))
+    if q and (not len(exp) or q.get("excluded_bars")!=int((calendar<=ACV_BAD_DAY).sum()) or q.get("first_used")!=exp[0].date().isoformat()):
+        raise ValueError("Phạm vi ACV bị loại không khớp lịch tham chiếu")
     missing=exp.difference(d.index)
     extra=d.index.difference(exp)
     if len(missing) or len(extra):
@@ -77,7 +96,7 @@ def stock_breakdown(signals,ledger,orders,policy):
                      "P&L đã đóng (VND)":realized,"P&L mở (VND)":unrealized,"P&L tổng (VND)":realized+unrealized})
     return pd.DataFrame(rows)
 
-def evaluate_cross_section(histories,index,groups=("U0","U1","U2","U3"),policy=Policy(),n_sim=N_SIM,require_reference=True,load_errors=None):
+def evaluate_cross_section(histories,index,groups=("U0","U1","U2","U3"),policy=Policy(),n_sim=N_SIM,require_reference=True,load_errors=None,allow_acv_quarantine=False):
     if not groups or len(set(groups))!=len(groups) or not set(groups).issubset(GROUPS):
         raise ValueError("Nhóm KT15 không hợp lệ")
     if policy!=Policy(price_scale=policy.price_scale): raise ValueError("KT15 chỉ dùng R1 cơ sở 100 triệu")
@@ -89,6 +108,7 @@ def evaluate_cross_section(histories,index,groups=("U0","U1","U2","U3"),policy=P
         raise ValueError("VN-Index không khớp phạm vi KT12 1.217 phiên")
     selected=sorted(set().union(*(GROUPS[g] for g in groups)))
     signals,coverage,errors,dates,raw={},[],[],[],[]
+    quarantined=set()
     load_errors=load_errors or {}
     for s in selected:
         exp=expected_dates(s,calendar)
@@ -97,6 +117,13 @@ def evaluate_cross_section(histories,index,groups=("U0","U1","U2","U3"),policy=P
              "Phiên chuyển sàn dự kiến":len(calendar[calendar>=exp[0]])-len(exp) if len(exp) else 0}
         try:
             d=histories.get(s)
+            q=quarantine_info(s,d,allow_acv_quarantine)
+            if q:
+                exp=expected_dates(s,calendar,True)
+                row.update({"Phiên dự kiến":len(exp),"Phiên trước niêm yết":0,"Phiên chuyển sàn dự kiến":0,
+                    "Phiên loại do ACV rút ngắn":q["excluded_bars"],"Ngày lỗi ACV":q["date"],
+                    "OHLCV lỗi ACV":str(q["ohlcv"]),"Lý do rút ngắn":q["reason"]})
+                dates.extend({"Mã":s,"Ngày":t,"Loại":"Loại prefix ACV (nghiên cứu bổ sung)"} for t in calendar[calendar<=ACV_BAD_DAY])
             if d is not None and not d.empty:
                 d=historical_slice(d)
                 local=local_index(d.index)
@@ -106,10 +133,11 @@ def evaluate_cross_section(histories,index,groups=("U0","U1","U2","U3"),policy=P
                 for kind,ls in (("Thiếu",exp.difference(local)),("Thừa",local.difference(exp))):
                     dates.extend({"Mã":s,"Ngày":t,"Loại":kind} for t in ls)
             if s in load_errors: raise ValueError(load_errors[s])
-            trial=prepare_one(s,d,calendar)
+            trial=prepare_one(s,d,calendar,allow_acv_quarantine)
             raw.append(trial[["open","high","low","close","volume","ATR","SMA50","SMA200","Buy_Pct","Trend","Reason"]].rename_axis("Ngày").reset_index().assign(Mã=s))
             signals[s]=trial
-            row.update({"Trạng thái":"Đạt","Nến thứ 200":trial.index[199]})
+            if q: quarantined.add(s)
+            row.update({"Trạng thái":"Đạt bổ sung (ACV rút ngắn)" if q else "Đạt","Nến thứ 200":trial.index[199]})
         except Exception as exc:
             msg=str(exc)[:300] if isinstance(exc,ValueError) else type(exc).__name__
             row.update({"Trạng thái":"Lỗi","Lý do":msg})
@@ -147,7 +175,8 @@ def evaluate_cross_section(histories,index,groups=("U0","U1","U2","U3"),policy=P
                 if base is None: raise ValueError("Thiếu A0 đối chứng")
                 st=stats_equity(curve["Equity"].to_numpy())
                 eco=float(detail.loc[detail["Hệ sinh thái Vingroup"],"P&L tổng (VND)"].sum())
-                tags={"Nhóm":group,"Bộ lọc":variant,"Chi phí":cost_id,"Kịch bản":case}
+                tags={"Nhóm":group,"Bộ lọc":variant,"Chi phí":cost_id,"Kịch bản":case,
+                      "Phạm vi ACV":"Rút ngắn sau 16/06/2022 (bổ sung)" if "ACV" in sig and "ACV" in quarantined else "Không rút ngắn"}
                 local_mc,local_draws=[],[]
                 if variant=="A4" and cost_id=="C0":
                     ret=curve["Equity"].pct_change().dropna()

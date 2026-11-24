@@ -35,6 +35,32 @@ def slice_raw_history(raw, history_end):
         raise DataQualityError("Thời gian nguồn hoặc mốc cắt không hợp lệ") from None
     return raw.loc[local.normalize()<=cutoff.normalize()].copy()
 
+ACV_BAD_DAY = pd.Timestamp("2022-06-16")
+ACV_BAD_OHLCV = (48.97,49.09,48.85,48.76,37101.)
+
+def prepare_kt15_acv(raw, now=None):
+    """Opt-in sensitivity only; strict first, never repair or stitch prices."""
+    try:
+        return prepare_daily_data(raw,now)
+    except DataQualityError as exc:
+        if not str(exc).startswith("1 nến có OHLC không nhất quán | 2022-06-16:"):
+            raise
+        ts=pd.DatetimeIndex(pd.to_datetime(raw["time"],errors="raise"))
+        local=ts.tz_convert(MARKET_TZ).tz_localize(None) if ts.tz is not None else ts
+        day=local.normalize()
+        bad=raw.loc[day==ACV_BAD_DAY,list(OHLCV)]
+        if len(bad)!=1 or not np.allclose(bad.to_numpy(dtype=float)[0],ACV_BAD_OHLCV,rtol=0,atol=1e-8):
+            raise
+        keep=day>ACV_BAD_DAY
+        daily,report=prepare_daily_data(raw.loc[keep].copy(),now)
+        report["kt15_acv_quarantine"]={
+            "date":ACV_BAD_DAY.date().isoformat(),
+            "ohlcv":bad.to_numpy(dtype=float)[0].tolist(),
+            "excluded_bars":int((~keep).sum()),
+            "first_used":report["first_date"],
+            "reason":str(exc)}
+        return daily,report
+
 def prepare_daily_data(raw, now=None):
     if not isinstance(raw, pd.DataFrame) or raw.empty:
         raise DataQualityError("Không có dữ liệu OHLCV")
