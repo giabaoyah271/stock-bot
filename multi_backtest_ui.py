@@ -72,6 +72,10 @@ def render_multi_backtest(get_data):
         from concentration_ui import render_concentration
         render_concentration()
 
+    with st.expander("KT17.0 – Sàng lọc U5 (120 mã)", expanded=False):
+        from universe_audit_ui import render_universe_audit
+        render_universe_audit(get_data)
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
