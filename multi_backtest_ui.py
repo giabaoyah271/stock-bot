@@ -76,6 +76,10 @@ def render_multi_backtest(get_data):
         from universe_audit_ui import render_universe_audit
         render_universe_audit(get_data)
 
+    with st.expander("KT17.0a-e – Chuẩn bị dữ liệu U5", expanded=False):
+        from universe_prepare_ui import render_universe_prepare
+        render_universe_prepare()
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
