@@ -52,7 +52,7 @@ def validate_index(index,reference,target,now=None):
         raise ValueError("Chọn phiên gần nhất đã hoàn tất, sau mốc nghiên cứu, không quá 7 ngày; hôm nay sau 15:15")
     _validate(index)
     d=index.copy();d.index=local_days(d.index)
-    if d.index[-1]!=target: raise ValueError("Phiên cuối VN-Index khác phiên yêu cầu")
+    if d.index[-1]!=target: raise ValueError(f"Phiên yêu cầu {target.date()}, TCBS VN-Index trả về phiên cuối {d.index[-1].date()}. Kiểm tra lịch nghỉ hoặc độ trễ dữ liệu; không tự coi phiên cũ là phiên mới.")
     past=d.loc[:END,"close"]
     if not past.index.equals(reference.index): raise ValueError("Lịch VN-Index lịch sử thay đổi")
     np.testing.assert_allclose(past,reference,rtol=1e-9,atol=1e-8,err_msg="VN-Index lịch sử thay đổi")
@@ -81,20 +81,43 @@ def scan_symbol(s,raw,index,old,zeros,now=None):
     past=d.loc[:END]
     if not past.index.equals(old[s].index): raise ValueError("Lịch khác mẫu đã nghiệm thu")
     for k in OHLCV: np.testing.assert_allclose(past[k],old[s][k],rtol=1e-9,atol=1e-8,err_msg=s+" lịch sử "+k+" thay đổi")
+    return replay_row(s,d,index,old[s])
+
+def replay_row(s,d,index,old):
+    """Recompute using exact accepted OHLCV; same path for frozen test and new scan."""
     f=calculate_indicators(d,record_stop=True)
     verify_baseline(f,RESEARCH[1]);verify_p0(f,RESEARCH[1],BY_CODE["S0"])
     out=replay_profit(f,RESEARCH[1],BY_CODE["S0"],PROFITS[0])
     if not (out["Trend"].iloc[:199]==-1).all(): raise ValueError("Tín hiệu trước warmup")
-    for k in COMPARE: np.testing.assert_allclose(out.loc[:END,k],old[s][k],rtol=1e-9,atol=1e-8,equal_nan=True,err_msg=s+" chỉ báo "+k+" khác")
+    for k in COMPARE: np.testing.assert_allclose(out.loc[:END,k],old[k],rtol=1e-9,atol=1e-8,equal_nan=True,err_msg=s+" chỉ báo "+k+" khác")
     for k in ("Trend","Reason"):
-        if not out.loc[:END,k].fillna("").astype(str).equals(old[s][k].fillna("").astype(str)): raise ValueError(s+" tín hiệu lịch sử khác "+k)
+        if not out.loc[:END,k].fillna("").astype(str).equals(old[k].fillna("").astype(str)): raise ValueError(s+" tín hiệu lịch sử khác "+k)
     x=enrich_causal({s:out},index,1000)[s];a,b=x.iloc[-2],x.iloc[-1]
     if not np.isfinite([b["RS60 (đpt)"],b["Buy_Pct"],b["Sell_Pct"],b["ATR"],b["GTGD proxy 20 (VND)"]]).all(): raise ValueError("Chỉ báo phiên cuối không hợp lệ")
-    return {"Mã":s,"Ngành":SECTORS[s],"Kỹ thuật":"Khớp mẫu KT18","Nến":len(x),"Phiên cuối":cal[-1].date().isoformat(),
+    return {"Mã":s,"Ngành":SECTORS[s],"Kỹ thuật":"Khớp mẫu KT18","Nến":len(x),"Phiên cuối":index.index[-1].date().isoformat(),
         "Tín hiệu":state(a["Trend"],b["Trend"]),"Trend trước":int(a["Trend"]),"Trend":int(b["Trend"]),
         "Close (nghìn VND)":float(b["close"]),"ATR (nghìn VND)":float(b["ATR"]),"Buy Score (%)":float(b["Buy_Pct"]),"Sell Score (%)":float(b["Sell_Pct"]),
         "RS60 (đpt)":float(b["RS60 (đpt)"]),"GTGD proxy 20 (VND)":float(b["GTGD proxy 20 (VND)"]),
         "Cảnh báo thanh khoản":"Dưới 10 tỷ" if b["GTGD proxy 20 (VND)"]<10e9 else "","Lý do":str(b["Reason"])}
+
+def reference_batch(symbols,old,index,progress=None):
+    """Offline test at END, not newly observed market data or forward evidence."""
+    if index.index[-1]!=END or not symbols or len(set(symbols))!=len(symbols) or not set(symbols).issubset(U5):
+        raise ValueError("Phạm vi kiểm thử sai")
+    rows=[]
+    for i,s in enumerate(symbols):
+        if s not in old:
+            row={"Mã":s,"Ngành":SECTORS[s],"Kỹ thuật":"Ngoài mẫu KT18 – chưa kiểm tra hiện tại",
+                 "Lý do":"Không có dữ liệu đã nghiệm thu trong ZIP U5-B"}
+        else:
+            try: row=replay_row(s,old[s][list(OHLCV)].copy(),index,old[s])
+            except Exception as exc:
+                row={"Mã":s,"Ngành":SECTORS[s],"Kỹ thuật":"Chưa đạt / cần kiểm tra","Lý do":str(exc)[:350] if isinstance(exc,(ValueError,AssertionError)) else type(exc).__name__}
+        row.update({"Tuân thủ":"Chưa xác minh","Điều kiện mua":"Chưa phê duyệt",
+                    "Ghi nhận (VN)":local_now().isoformat(),"Chế độ":"KIỂM THỬ HỒI CỨU"})
+        rows.append(row)
+        if progress: progress(i+1,len(symbols),s)
+    return rows
 
 def scan_batch(symbols,loader,index,old,zeros,now,progress=None):
     if not symbols or len(set(symbols))!=len(symbols) or not set(symbols).issubset(U5): raise ValueError("Lô không hợp lệ")
@@ -103,7 +126,7 @@ def scan_batch(symbols,loader,index,old,zeros,now,progress=None):
         try: row=scan_symbol(s,loader(s),index,old,zeros,now)
         except Exception as exc:
             row={"Mã":s,"Ngành":SECTORS[s],"Kỹ thuật":"Chưa đạt / cần kiểm tra","Lý do":str(exc)[:350] if isinstance(exc,(ValueError,AssertionError)) else type(exc).__name__}
-        row.update({"Tuân thủ":"Chưa xác minh","Điều kiện mua":"Chưa phê duyệt","Ghi nhận (VN)":local_now().isoformat()})
+        row.update({"Tuân thủ":"Chưa xác minh","Điều kiện mua":"Chưa phê duyệt","Ghi nhận (VN)":local_now().isoformat(),"Chế độ":"QUÉT PHIÊN MỚI"})
         rows.append(row)
         if progress: progress(i+1,len(symbols),s)
     return rows

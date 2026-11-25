@@ -1,6 +1,7 @@
 import unittest
 import pandas as pd
-from signal_engine_core import state,report_rows,validate_index,SCOPE,U5
+from unittest.mock import patch
+from signal_engine_core import state,report_rows,validate_index,reference_batch,SCOPE,U5,END
 class SignalEngineTests(unittest.TestCase):
     def test_states(self):
         self.assertEqual(state(-1,1),"Mua mới (tín hiệu)")
@@ -25,6 +26,20 @@ class SignalEngineTests(unittest.TestCase):
         with self.assertRaises(ValueError): validate_index(d,old,"2026-11-25","2026-11-25 09:00")
         with self.assertRaises(ValueError): validate_index(d,old,"2026-11-25","2026-11-25 16:00")
         with self.assertRaises(AssertionError): validate_index(d,old+1,"2026-11-24","2026-11-25 09:00")
+    def test_reference_mode_does_not_require_new_session(self):
+        d=pd.DataFrame({"open":[10.],"high":[11.],"low":[9.],"close":[10.],"volume":[1.]},index=pd.DatetimeIndex([END]))
+        ix=d["close"]
+        with patch("signal_engine_core.replay_row",return_value={"Mã":"HPG","Kỹ thuật":"Khớp mẫu KT18"}) as mock:
+            rows=reference_batch(("HPG","DMX"),{"HPG":d},ix)
+        mock.assert_called_once()
+        self.assertEqual(len(rows),2)
+        self.assertEqual(rows[0]["Chế độ"],"KIỂM THỬ HỒI CỨU")
+        self.assertEqual(rows[1]["Điều kiện mua"],"Chưa phê duyệt")
+        self.assertIn("Ngoài mẫu",rows[1]["Kỹ thuật"])
+    def test_live_still_blocks_frozen_day(self):
+        d=pd.DataFrame({"open":[100.],"high":[101.],"low":[99.],"close":[100.],"volume":[1]},index=pd.DatetimeIndex([END]))
+        with self.assertRaises(ValueError):
+            validate_index(d,d["close"],END,"2026-11-25 09:00")
     def test_empty_error_only_and_duplicates(self):
         self.assertTrue(report_rows([]).empty)
         d=report_rows([{"Mã":"HPG","Kỹ thuật":"Chưa đạt"}])
