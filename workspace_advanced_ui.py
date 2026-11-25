@@ -4,13 +4,14 @@ import pandas as pd
 import streamlit as st
 from workspace_core import ADVANCED,REF
 from workspace_ui import reference_panel,account_setup
+from storage_ui_ds01 import render_storage
 from trading_dashboard_core import candidate_parameters,CANDIDATE
 from paper_trading_ui import acceptance_zip,error
 from workspace_acceptance import run_workspace_acceptance
 
 def render_settings():
     st.title("Hệ thống · Thiết lập & sao lưu")
-    st.caption("Kết nối TCBS ở thanh bên; API Key tại Streamlit Secrets. Dữ liệu tham chiếu và tài khoản giữ riêng trong phiên.")
+    st.caption("Kết nối TCBS ở thanh bên; API Key tại Streamlit Secrets. Dữ liệu lưu Cloud nếu đã cấu hình, nếu không chỉ trong phiên.")
     st.subheader("Dữ liệu tham chiếu")
     reference_panel()
     st.subheader("Tài khoản và sao lưu")
@@ -18,7 +19,8 @@ def render_settings():
     with st.expander("Cấu hình chiến lược (chỉ đọc)"):
         st.write(CANDIDATE)
         st.dataframe(candidate_parameters(),hide_index=True,use_container_width=True)
-    st.caption("Kết nối TCBS ở thanh bên. Không có lưu trữ lâu dài trên Cloud; lưu JSON riêng tư. Không tự kết nối dịch vụ ngoài.")
+    st.divider()
+    render_storage()
 
 def render_acceptance():
     st.title("Nghiệm thu tích hợp")

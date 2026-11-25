@@ -63,6 +63,11 @@ class SupabaseBackend:
                 result=response.read(MAX_OBJECT+1)
         except urllib.error.HTTPError as e:
             if e.code==404: raise Missing("Không tìm thấy dữ liệu Cloud") from None
+            if e.code==400 and "/storage/v1/object/authenticated/" in path:
+                try: body=json.loads(e.read(4096))
+                except Exception: body={}
+                if str(body.get("statusCode"))=="404" or body.get("error")=="not_found":
+                    raise Missing("Không tìm thấy object") from None
             if e.code in (409,): raise Conflict("Object đã tồn tại hoặc xung đột") from None
             raise StorageError("Supabase HTTP "+str(e.code)) from None
         except (OSError,TimeoutError):

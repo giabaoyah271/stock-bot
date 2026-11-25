@@ -89,7 +89,7 @@ def readiness_strip(ref,probe,report,account):
     cols[0].markdown("**Đã xác minh**" if ref in state else "**Chưa tải ZIP**")
     cols[1].caption("PAPER TRADING")
     cols[1].markdown("**Đã có tài khoản**" if state.get(account) else "**Chưa khởi tạo**")
-    cols[2].caption("BÁO CÁO QUÉT LIVE")
+    cols[2].caption("BÁO CÁO KHÔI PHỤC" if state.get("ds01_restored_scan") else "BÁO CÁO QUÉT LIVE")
     cols[2].markdown("**"+str(r["identity"][0])+"**" if live else "**Chưa có báo cáo LIVE**")
     st.divider()
 

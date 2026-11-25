@@ -2,7 +2,7 @@ name: Stock Bot research regression tests
 
 on:
   push:
-    branches: [cloud-dev, research-v3, 'ui-ux/research-v3-terminal']
+    branches: [cloud-dev, research-v3, 'ui-ux/research-v3-terminal', 'feature/persistent-storage']
   workflow_dispatch:
 
 permissions:

@@ -13,6 +13,8 @@ from performance_metrics import profit_factor_money
 st.set_page_config(page_title="Stock Bot V3 | Trading Terminal", layout="wide", initial_sidebar_state="auto")
 from terminal_v3_ui import apply_theme, workspace_navigation, readiness_strip
 apply_theme()
+from storage_ui_ds01 import gate as ds01_gate
+ds01_gate()
 TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 # --- XAC THUC TCBS ---
 with st.sidebar.expander("Kết nối TCBS · Smart OTP", expanded=False):
@@ -422,11 +424,15 @@ from workspace_ui import render_home, render_opportunities
 from workspace_portfolio_ui import render_portfolio
 from workspace_detail_ui import render_detail
 
+from storage_ui_ds01 import initialize as ds01_initialize, preferences as ds01_preferences, sidebar_status as ds01_sidebar_status
+ds01_initialize()
+ds01_preferences()
 page, advanced = workspace_navigation(WORKSPACE_PAGES, WORKSPACE_NAV, ADVANCED)
 mode={ADVANCED[1]:RESEARCH_PAGE,ADVANCED[2]:SCAN,ADVANCED[3]:DETAIL}.get(advanced)
 from workspace_core import REF, PROBE, REPORT
 from paper_trading_ui import ACCOUNT
 readiness_strip(REF, PROBE, REPORT, ACCOUNT)
+ds01_sidebar_status()
 timeframe=st.sidebar.selectbox("Khung thời gian",list(TF_MAP.keys()),index=1) if mode in (DETAIL,SCAN) else "Ngày"
 
 if page==WORKSPACE_PAGES[0]:

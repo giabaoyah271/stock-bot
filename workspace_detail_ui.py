@@ -10,6 +10,7 @@ from unified_strategy_core import STRATEGY,COHORT,resolve_daily,single_snapshot,
 from signal_engine_core import local_now
 from paper_trading_ui import error
 from terminal_v3_ui import style_chart, GREEN, RED
+from storage_ui_ds01 import persist_single,restored_scan
 
 def show_value(row,key):
     v=row.get(key,np.nan)
@@ -52,12 +53,13 @@ def render_detail(get_data):
                     single=single_snapshot(symbol,st.session_state[REF],ix,loader,now)
                     # If there is an existing scan, do not show an inconsistent result.
                     resolve_daily(report,symbol,single)
-                    st.session_state["pt10_single"]=single
+                    persist_single(single)
             except Exception as exc: error(exc);return
         try: df,row,source,rank=resolve_daily(report,symbol,single)
         except Exception as exc:
             st.info(str(exc)+"; chọn Tải dữ liệu hoặc quét cơ hội trước. Không dùng V1 thay thế.")
             return
+        if restored_scan() or st.session_state.get("ds01_restored_single"): st.caption("Biểu đồ Cloud khôi phục · dữ liệu tham khảo, không xác nhận phiên mới.")
         st.caption(f"Nguồn: {source} | Phiên {row['Phiên cuối']} | SHA OHLCV {row['SHA lịch sử'][:12]}…")
         if row["Phiên cuối"]!=str(local_now().date()): st.warning("Phiên đã ghi nhận trước hôm nay; chỉ tham khảo, không phải tín hiệu mới hôm nay.")
         last=df.iloc[-1];quality={}

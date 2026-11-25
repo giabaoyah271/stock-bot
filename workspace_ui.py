@@ -14,6 +14,7 @@ from paper_trading_ui import ACCOUNT,cash_text,error,render_risk
 from trading_dashboard_core import candidate_parameters,CANDIDATE
 from full_universe_core import SHA_B
 from terminal_v3_ui import style_chart, line_chart, GREEN, RED
+from storage_ui_ds01 import persist_reference,persist_account,persist_scan,restored_scan
 
 def go(page,symbol=None):
     st.session_state[NAV]=page
@@ -27,7 +28,7 @@ def jump(label,page,key,symbol=None):
 
 def reference_panel():
     if REF in st.session_state:
-        st.caption("U5-B đã xác minh SHA-256, dùng lại trong phiên làm việc này.")
+        st.caption("U5-B đã xác minh SHA-256. Kiểm tra trạng thái Cloud trong Hệ thống.")
         if st.button("Gỡ ZIP tham chiếu khỏi phiên",key="pt09_remove_ref"):
             st.session_state.pop(REF,None)
             st.session_state.pop(REPORT,None)
@@ -35,12 +36,12 @@ def reference_panel():
             st.session_state.pop("pt10_acceptance",None)
             st.rerun()
     else:
-        st.caption("Tải một lần ZIP U5-B đã nghiệm thu (115 mã). Dữ liệu giữ trong session riêng, không lưu lên GitHub.")
+        st.caption("Tải một lần ZIP U5-B đã nghiệm thu (115 mã). Dữ liệu không lưu lên GitHub; Cloud chỉ lưu nếu đã cấu hình và xác nhận quyền.")
         up=st.file_uploader("ZIP U5-B",type="zip",key="pt09_reference_upload")
         if st.button("Xác minh và lưu tham chiếu",key="pt09_save_ref"):
             try:
                 if up is None: raise ValueError("Chọn ZIP U5-B")
-                st.session_state[REF]=checked_reference(up.getvalue())
+                persist_reference(up.getvalue())
                 st.rerun()
             except Exception as exc: error(exc)
 
@@ -65,7 +66,7 @@ def market_caption():
 
 def paper_backup(account,key):
     st.download_button("Tải JSON sao lưu Paper",export_account(account),"stock_bot_paper_account.json","application/json",key=key,use_container_width=True)
-    st.caption("Tải sau mỗi lần ghi phiên; session Cloud có thể mất khi khởi động lại.")
+    st.caption("Giữ JSON riêng sau mỗi lần ghi phiên; kiểm tra trạng thái đồng bộ Cloud.")
 
 def paper_record(key):
     account=st.session_state.get(ACCOUNT)
@@ -73,6 +74,9 @@ def paper_record(key):
     if not account:
         st.info("Chưa có tài khoản mô phỏng.")
         jump("Mở danh mục để khởi tạo",PAGES[3],key+"_init")
+        return
+    if restored_scan():
+        st.info("Báo cáo khôi phục chỉ tham khảo; quét mới trực tiếp trước khi ghi Paper.")
         return
     try:
         if st.session_state.get(PROBE) and saved and st.session_state[PROBE]["status"]["last"]!=saved["identity"][0]:
@@ -86,7 +90,7 @@ def paper_record(key):
     confirmed=st.checkbox("Xác nhận phiên hôm nay đã hoàn tất, đơn vị giá nghìn đồng và ghi mô phỏng",key=key+"_confirm")
     if st.button("Ghi phiên Paper",type="primary",disabled=not confirmed,key=key+"_record"):
         try:
-            st.session_state[ACCOUNT]=record_preview(account,saved)
+            persist_account(record_preview(account,saved))
             st.session_state["pt09_recorded"]=date
             st.rerun()
         except Exception as exc: error(exc)
@@ -143,6 +147,7 @@ def render_home():
         st.info("Chưa có báo cáo quét phiên mới. Kết quả kiểm thử không đưa vào bảng giao dịch.")
     else:
         d=opportunities(saved);s=saved["identity"][0]
+        if restored_scan(): st.warning("Báo cáo khôi phục từ Cloud · chỉ tham khảo.")
         st.caption(f"Báo cáo phiên {s} | {len(saved['rows'])}/120 mã đã quét | Không phải báo giá trực tiếp.")
         if s!=str(local_now().date()): st.warning("Báo cáo không thuộc ngày hôm nay; không dùng để ghi phiên mới.")
         a,b,c=st.columns(3)
@@ -168,6 +173,7 @@ def render_opportunities():
     confirm=st.checkbox("Tôi xác nhận đơn vị giá TCBS là nghìn đồng; chỉ dùng nến đã hoàn tất",key="pt09_scan_confirm")
     if st.button("Quét cơ hội theo phiên mới nhất",type="primary",key="pt09_scan",disabled=REF not in st.session_state or not confirm):
         previous=st.session_state.pop(REPORT,None)
+        if restored_scan(): previous=None
         st.session_state.pop(PROBE,None)
         bar=st.progress(0,text="Xác định phiên VN-Index...")
         try:
@@ -177,7 +183,7 @@ def render_opportunities():
                 time.sleep(1.1)
                 return Market("tcbs").equity(s).ohlcv(start="2022-01-01",end=now.date().isoformat(),interval="1D")
             saved=build_report(st.session_state[REF],ix,loader,scope,previous,now,lambda i,n,s:bar.progress(i/n,text=f"{i}/{n}: {s}"))
-            st.session_state[REPORT]=saved
+            persist_scan(saved)
             st.rerun()
         except Exception as exc: error(exc)
         finally: bar.empty()
@@ -188,12 +194,15 @@ def render_opportunities():
         n=int((d["Kỹ thuật"]=="Khớp mẫu KT18").sum())
         a,b,c=st.columns(3);a.metric("Đã quét",f"{len(saved['rows'])}/120");b.metric("Khớp mẫu",f"{n}/115");c.metric("Mua mới kỹ thuật",int((d["Tín hiệu"]=="Mua mới (tín hiệu)").sum()))
         st.caption(f"Phiên {saved['identity'][0]} | Ghi nhận {saved['updated']}. Xếp hạng trên các mã đạt dữ liệu, không tự phê duyệt mua.")
+        if restored_scan(): st.warning("Báo cáo khôi phục từ Cloud · quét mới trước khi ghi Paper.")
         if saved["identity"][0]!=str(local_now().date()): st.warning("Phiên cũ: chỉ tham khảo, không ghi Paper hôm nay.")
     else: st.info("Chưa có kết quả quét phiên mới. Hiển thị Watchlist, không có giá hoặc tín hiệu giả.")
     st.subheader("02 · Bảng cơ hội")
     st.caption("Bộ lọc chỉ đổi cách hiển thị; hạng mua mới được giữ nguyên. Nhấn tiêu đề cột để sắp xếp.")
     x,y,z=st.columns([1,2,2])
     with x: q=st.text_input("Tìm mã",key="pt09_search")
+    for key,options in (("pt09_sectors",list(d["Ngành (sơ bộ)"].unique())),("pt09_signals",list(d["Tín hiệu"])),("pt09_quality",list(d["Kỹ thuật"]))):
+        if key in st.session_state: st.session_state[key]=[v for v in st.session_state[key] if v in options]
     with y: sector=st.multiselect("Ngành",sorted(d["Ngành (sơ bộ)"].unique()),key="pt09_sectors")
     with z: signals=st.multiselect("Tín hiệu",list(dict.fromkeys(d["Tín hiệu"])),key="pt09_signals")
     with st.expander("Lọc chất lượng và cột chuyên sâu"):
@@ -235,7 +244,7 @@ def account_setup():
     st.caption("Tài khoản mới khóa cấu hình tại thời điểm tạo, 100 triệu tiền mặt; chỉ ghi sau ngày khóa.")
     if account is None and st.button("Khởi tạo tài khoản Paper",key="pt09_create"):
         try:
-            st.session_state[ACCOUNT]=new_account()
+            persist_account(new_account())
             st.session_state.pop("pt09_recorded",None)
             st.rerun()
         except Exception as exc: error(exc)
@@ -243,7 +252,7 @@ def account_setup():
     replace=st.checkbox("Đã sao lưu tài khoản hiện tại, đồng ý thay thế",key="pt09_replace") if account else True
     if st.button("Khôi phục tài khoản",disabled=not replace or uploaded is None,key="pt09_restore"):
         try:
-            st.session_state[ACCOUNT]=import_account(uploaded.getvalue())
+            persist_account(import_account(uploaded.getvalue()),allow_local_replace=True)
             st.session_state.pop("pt09_recorded",None)
             st.rerun()
         except Exception as exc: error(exc)
