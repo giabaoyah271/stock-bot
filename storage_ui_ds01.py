@@ -42,8 +42,8 @@ def gate():
         st.title("Stock Bot · Đăng nhập kho lưu trữ")
         st.caption("Dùng tài khoản Supabase Auth của chủ sở hữu. Không phải tài khoản TCBS.")
         with st.form("ds01_login",clear_on_submit=True):
-            email=st.text_input("Email Supabase Auth")
-            password=st.text_input("Mật khẩu Supabase Auth",type="password")
+            email=st.text_input("Email Supabase Auth",key="ds01_login_email")
+            password=st.text_input("Mật khẩu Supabase Auth",type="password",key="ds01_login_password")
             submitted=st.form_submit_button("Đăng nhập")
         if submitted:
             try:
@@ -73,12 +73,17 @@ def save(kind,data):
     if not enabled(kind): return False
     if kind not in versions(): raise StorageError("Chưa xác định phiên bản Cloud; kiểm tra kết nối và tải lại")
     try:
-        versions()[kind]=repo().save(kind,data,versions()[kind])
+        r=repo()
+        versions()[kind]=r.save(kind,data,versions()[kind])
+        try: r.b.log(kind,"saved")
+        except Exception: pass
         status(kind,"Đã đồng bộ · v"+str(versions()[kind]))
         st.session_state[PREFIX+"last_sync"]=time.strftime("%Y-%m-%d %H:%M:%S UTC",time.gmtime())
         return True
     except Exception as e:
         status(kind,"Đồng bộ thất bại · "+type(e).__name__)
+        try: repo().b.log(kind,"failed")
+        except Exception: pass
         # Do not expose response bodies, object names, or credentials.
         raise StorageError("Chưa xác nhận lưu Cloud; kiểm tra trạng thái và tải lại trước khi ghi") from None
 
@@ -237,6 +242,19 @@ def render_storage():
         st.caption("Phiên Paper cuối: "+(events[-1]["input"]["session"] if events else "Chưa ghi phiên"))
     if REPORT in st.session_state: st.caption("Phiên quét: "+str(st.session_state[REPORT]["identity"][0]))
     st.caption("Lần lưu xác nhận: "+st.session_state.get(PREFIX+"last_sync","Chưa lưu trong session này"))
+    if st.button("Kiểm tra dung lượng / nhật ký",key="ds01_usage_btn"):
+        try:
+            r=repo()
+            st.session_state[PREFIX+"usage"]=r.b.usage()
+            st.session_state[PREFIX+"logs"]=r.b.logs()
+        except Exception: st.error("Không đọc được dung lượng hoặc nhật ký")
+    usage=st.session_state.get(PREFIX+"usage")
+    if usage is not None:
+        st.metric("Dung lượng namespace",f"{usage/1e6:,.2f} MB")
+        st.progress(min(1.0,usage/1e9),text="So với 1 GB Storage Free; không phải tổng dung lượng project.")
+        if usage>=950_000_000: st.error("Đã dùng ít nhất 95% hạn mức tham khảo; kiểm tra Dashboard.")
+        elif usage>=800_000_000: st.warning("Đã dùng ít nhất 80% hạn mức tham khảo.")
+    if st.session_state.get(PREFIX+"logs"): st.dataframe(st.session_state[PREFIX+"logs"],hide_index=True,use_container_width=True)
     if st.button("Kiểm tra kết nối / tải lại Cloud",key="ds01_retry"):
         st.session_state.pop(PREFIX+"prefs_failed",None)
         # Invalidate reports and confirmations before restore; never leave an old LIVE report recordable.

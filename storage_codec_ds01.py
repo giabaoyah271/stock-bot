@@ -41,7 +41,7 @@ def frame_unpack(p):
     cols={}
     for c in p["columns"]:
         name,dt,values=c["name"],c["dtype"],c["values"]
-        if not isinstance(name,str) or name in cols or not re.fullmatch(r"(float(32|64)|u?int(8|16|32|64)|Int(8|16|32|64)|UInt(8|16|32|64)|bool|boolean|object|string)",dt) or len(values)!=len(idx):
+        if not isinstance(name,str) or name in cols or not re.fullmatch(r"(float(32|64)|u?int(8|16|32|64)|Int(8|16|32|64)|UInt(8|16|32|64)|bool|boolean|object|string|str)",dt) or len(values)!=len(idx):
             raise StorageError("Cột frame không hợp lệ")
         cols[name]=pd.Series(values,index=idx,dtype=dt)
     return pd.DataFrame(cols,index=idx)

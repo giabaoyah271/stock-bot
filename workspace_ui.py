@@ -229,7 +229,7 @@ def render_opportunities():
             b=io.BytesIO()
             with zipfile.ZipFile(b,"w",compression=zipfile.ZIP_DEFLATED) as z:
                 z.writestr("stock_bot_pt09_co_hoi.csv",d.to_csv(index=False).encode("utf-8-sig"))
-                z.writestr("manifest.json",json.dumps({"mode":"LIVE","session":saved["identity"][0],"index_sha":saved["identity"][1],"reference_sha":SHA_B,"updated":saved["updated"],"scanned":len(saved["rows"]),"forward_evidence":False},ensure_ascii=False))
+                z.writestr("manifest.json",json.dumps({"mode":"LIVE","session":saved["identity"][0],"index_sha":saved["identity"][1],"reference_sha":SHA_B,"updated":saved["updated"],"scanned":len(saved["rows"]),"forward_evidence":False,"restored_from_cloud":restored_scan()},ensure_ascii=False))
             st.download_button("Tải ZIP kết quả quét",b.getvalue(),"stock_bot_pt09_co_hoi.zip","application/zip",key="pt09_scan_zip")
     st.divider()
     st.subheader("03 · Ghi phiên mô phỏng")

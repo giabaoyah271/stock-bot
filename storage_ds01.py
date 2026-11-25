@@ -85,6 +85,14 @@ class SupabaseBackend:
         if not isinstance(r,dict) or r.get("public") is not False:
             raise StorageError("Bucket chưa được xác minh Private")
         self.head("paper")
+    def usage(self):
+        r=self.request("/rest/v1/rpc/ds01_usage","POST",json_bytes({"p_namespace":self.c.namespace}))
+        if type(r) is not int or r<0: raise StorageError("Không đọc được dung lượng")
+        return r
+    def log(self,kind,result):
+        self.request("/rest/v1/ds01_sync_logs","POST",json_bytes({"namespace":self.c.namespace,"kind":kind,"result":result}))
+    def logs(self):
+        return self.query("ds01_sync_logs",select="kind,result,created_at",order="id.desc",limit="20")
     def path(self,kind,digest):
         if kind not in KINDS or not re.fullmatch(r"[0-9a-f]{64}",digest): raise StorageError("Object path không hợp lệ")
         return "/storage/v1/object/"+BUCKET+"/"+self.c.namespace+"/"+kind+"/"+digest

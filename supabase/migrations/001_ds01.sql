@@ -56,4 +56,23 @@ begin
 end $$;
 revoke all on function public.ds01_commit(text,text,bigint,text,bigint) from public,anon,authenticated;
 grant execute on function public.ds01_commit(text,text,bigint,text,bigint) to service_role;
+-- Usage includes orphan objects; limit applies to dedicated project, dashboard authoritative.
+create or replace function public.ds01_usage(p_namespace text)
+returns bigint language sql stable security invoker set search_path='' as $
+ select coalesce(sum(case when metadata->>'size' ~ '^[0-9]+ then (metadata->>'size')::bigint else 0 end),0)::bigint
+ from storage.objects where bucket_id='stock-bot-private' and name like p_namespace||'/%'
+$;
+revoke all on function public.ds01_usage(text) from public,anon,authenticated;
+grant execute on function public.ds01_usage(text) to service_role;
+create table if not exists public.ds01_sync_logs (
+ id bigint generated always as identity primary key,
+ namespace text not null check(namespace ~ '^[a-z0-9-]{1,40}),
+ kind text not null check(kind in ('reference','paper','scan','single','preferences')),
+ result text not null check(result in ('saved','failed')),
+ created_at timestamptz not null default now()
+);
+alter table public.ds01_sync_logs enable row level security;
+revoke all on public.ds01_sync_logs from public,anon,authenticated;
+grant select,insert on public.ds01_sync_logs to service_role;
+grant usage,select on sequence public.ds01_sync_logs_id_seq to service_role;
 commit;
