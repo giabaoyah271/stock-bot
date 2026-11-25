@@ -1,6 +1,6 @@
 import unittest
 import pandas as pd
-from capacity_core import CAPACITY,capacity_id,split_loo,drop_two,diagnostic_walk_forward,read_kt17
+from capacity_core import CAPACITY,capacity_id,split_loo,loo_symbols,drop_two,diagnostic_walk_forward,read_kt17
 
 class CapacityTests(unittest.TestCase):
     def test_prespecified_grid(self):
@@ -14,6 +14,14 @@ class CapacityTests(unittest.TestCase):
         self.assertEqual([len(v) for v in parts.values()],[23]*5)
         self.assertEqual([x for v in parts.values() for x in v],s)
         with self.assertRaises(ValueError): split_loo(s[:-1])
+    def test_loo_all_matches_existing_batches(self):
+        symbols=[f"T{i:03d}" for i in range(115)][::-1]
+        batches=tuple(s for i in range(1,6) for s in loo_symbols(symbols,f"LOO{i}"))
+        self.assertEqual(loo_symbols(symbols,"LOO_ALL"),batches)
+        self.assertEqual(len(batches),115)
+        self.assertEqual(len(set(batches)),115)
+        with self.assertRaises(ValueError): loo_symbols(symbols,"MAIN")
+        with self.assertRaises(ValueError): loo_symbols(symbols[:-1],"LOO_ALL")
     def test_drop_two_ties(self):
         f=pd.DataFrame({"Mã":[f"T{i:03d}" for i in range(115)],"P&L tổng (VND)":[1.]*115,"Kịch bản":"U5-B-FULL-A0-C0-RS60-L0"})
         self.assertEqual(drop_two({"theo_ma":f},"U5-B"),("T000","T001"))

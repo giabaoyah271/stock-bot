@@ -5,13 +5,15 @@ from capacity_core import PARTS,read_kt17,evaluate_capacity
 from full_universe_core import load_inputs
 
 def render_capacity():
-    st.caption("KT18: 22 kịch bản MAIN + 115 leave-one-out (5 lô × 23). Cố định A0-RS60; không đổi chỉ báo, không gọi TCBS.")
+    st.caption("KT18: 22 kịch bản MAIN + 115 leave-one-out (LOO_ALL hoặc 5 lô × 23). Cố định A0-RS60; không đổi chỉ báo, không gọi TCBS.")
     st.warning("Nghiên cứu hồi cứu; danh mục chọn cuối kỳ, lịch sử rút ngắn, chưa xác minh pháp lý. Ngân sách rủi ro không phải mức lỗ tối đa. Walk-forward là chẩn đoán shadow, không phải ngoài mẫu độc lập.")
     files=[st.file_uploader(label,type="zip",key="kt18_"+key) for label,key in (
         ("KT15 – ZIP gốc","15"),("KT16 – ZIP gốc","16"),("U5-A – ZIP chuẩn bị 106 mã","a"),
         ("U5-B – ZIP chuẩn bị 115 mã","b"),("KT17 – ZIP đủ 40 kịch bản","17"))]
     part=st.selectbox("Phần kiểm định",PARTS,key="kt18_part")
-    st.caption("Chạy MAIN trước. Sau khi nghiệm thu, chạy từng LOO1–LOO5; mỗi phần xuất ZIP riêng. Không cần tải lại TCBS.")
+    st.caption("Sau MAIN, chọn LOO_ALL để chạy đủ 115 kịch bản và xuất một ZIP. Nếu Cloud bị gián đoạn, dùng từng lô LOO1–LOO5. Không cần tải lại TCBS.")
+    if part=="LOO_ALL":
+        st.info("Chạy tuần tự 115 kịch bản, kiểm tra 4 đối chứng một lần. Giữ tab mở đến khi có báo cáo; nếu Cloud khởi động lại, dùng các lô nhỏ.")
     if st.button("Chạy KT18",type="primary",key="kt18_run"):
         st.session_state.pop("kt18_report",None)
         if any(x is None for x in files): st.error("Cần đủ 5 ZIP gốc.");return

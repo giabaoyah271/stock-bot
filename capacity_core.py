@@ -12,7 +12,7 @@ SHA17="8b88545ee77eb9054a90e69d14dbc0b278a161da00d43727d35d09de8a31a6d3"
 GROUPS=("U5-A","U5-B")
 # Baseline first, no search beyond the predeclared 3 x 2 design.
 CAPACITY=((5,.005),(5,.0025),(8,.005),(8,.0025),(10,.005),(10,.0025))
-PARTS=("MAIN","LOO1","LOO2","LOO3","LOO4","LOO5")
+PARTS=("MAIN","LOO_ALL","LOO1","LOO2","LOO3","LOO4","LOO5")
 KEYS=("tong_hop","equity","giao_dich","lenh","cua_so","theo_ma","theo_nganh","monte_carlo","monte_carlo_mau","walk_forward","loi")
 
 def capacity_id(n,risk):
@@ -22,6 +22,15 @@ def split_loo(symbols):
     s=sorted(symbols)
     if len(s)!=115 or len(set(s))!=115: raise ValueError("LOO cần đúng 115 mã")
     return {f"LOO{i+1}":tuple(s[i*23:(i+1)*23]) for i in range(5)}
+
+def loo_symbols(symbols,part):
+    """LOO_ALL is exactly the ordered concatenation of the five existing batches."""
+    batches=split_loo(symbols)
+    if part=="LOO_ALL":
+        return tuple(s for batch in batches.values() for s in batch)
+    if part not in batches:
+        raise ValueError("Lô LOO không hợp lệ")
+    return batches[part]
 
 def read_kt17(data):
     with check_zip(data,SHA17) as z:
@@ -91,7 +100,7 @@ def evaluate_capacity(data,archive,part="MAIN",n_sim=N_SIM,progress=None):
             verify_kt17(result,archive,g,rank)
             base[g,rank]=result
     # MAIN 22 cases: 12 grid, 2 BUY controls, 6 cost stress, 2 drop-two.
-    # LOO: 23 omissions per part, fixed U5-B A0-RS60 baseline policy only.
+    # LOO: 23 omissions per batch or all 115, fixed U5-B A0-RS60 policy only.
     jobs=[]
     if part=="MAIN":
         for g in GROUPS:
@@ -100,7 +109,7 @@ def evaluate_capacity(data,archive,part="MAIN",n_sim=N_SIM,progress=None):
             jobs.extend((g,"COST",5,.005,c,"RS60",()) for c in ("C1","C2","C3"))
             jobs.append((g,"DROP2",5,.005,"C0","RS60",drop_two(archive,g)))
     else:
-        jobs.extend(("U5-B","LOO",5,.005,"C0","RS60",(s,)) for s in split_loo(signals["U5-B"])[part])
+        jobs.extend(("U5-B","LOO",5,.005,"C0","RS60",(s,)) for s in loo_symbols(signals["U5-B"],part))
     report={k:[] for k in KEYS};wf={g:{} for g in GROUPS}
     def add(k,d):
         if len(d): report[k].append(d)
