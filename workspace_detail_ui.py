@@ -9,6 +9,7 @@ from workspace_ui import reference_panel,fetch_market
 from unified_strategy_core import STRATEGY,COHORT,resolve_daily,single_snapshot,reference_stop,transition_history,supplemental
 from signal_engine_core import local_now
 from paper_trading_ui import error
+from terminal_v3_ui import style_chart, GREEN, RED
 
 def show_value(row,key):
     v=row.get(key,np.nan)
@@ -84,25 +85,25 @@ def render_detail(get_data):
     elif days_old>5:
         st.warning(f"Dữ liệu cách hôm nay {days_old} ngày. Hãy kiểm tra kết nối TCBS và lịch nghỉ giao dịch.")
     if daily:
-        cols=st.columns(5)
-        cols[0].metric(f"{symbol} Close",show_value(last,"close"))
-        cols[1].metric("Tín hiệu chính",row["Tín hiệu"])
-        cols[2].metric("Điểm mua",show_value(last,"Buy_Pct")+"%")
-        cols[3].metric("Điểm bán",show_value(last,"Sell_Pct")+"%")
-        cols[4].metric("RS60",show_value(last,"RS60 (đpt)")+" đpt")
+        a,b,c=st.columns([1,2,1])
+        a.metric(f"{symbol} Close",show_value(last,"close"))
+        b.metric("Tín hiệu chính",row["Tín hiệu"])
+        c.metric("RS60",show_value(last,"RS60 (đpt)")+" đpt")
+        st.caption("Điểm mua: "+show_value(last,"Buy_Pct")+"% · Điểm bán: "+show_value(last,"Sell_Pct")+"% · Điểm kỹ thuật, không phải xác suất thắng.")
         st.caption("Hạng mua mới: "+(str(int(rank)) if pd.notna(rank) else "—")+" | Chỉ xếp hạng trên mã đã quét đạt dữ liệu. Không xác nhận vị thế hay phê duyệt mua.")
     else:
         cols=st.columns(4)
         for c,k in zip(cols,("close","RSI","ADX","ATR")): c.metric(k.upper(),show_value(last,k))
     st.caption("Giá và ATR theo đơn vị nguồn TCBS.")
-    x,y=st.columns([2,2])
+    st.subheader("Biểu đồ kỹ thuật")
+    x,y,z=st.columns([2,2,1])
     choices=["SMA20","SMA50","SMA200","Bollinger"]+(["Trailing Stop S0P0"] if daily else [])
     with x: overlays=st.multiselect("Đường giá",choices,default=["SMA50","SMA200"],key="pt10_overlays_"+tf)
     with y: panel=st.selectbox("Chỉ báo phụ",["RSI","MACD","ADX / DI","ATR","Không"],key="pt10_panel")
-    range_n=st.selectbox("Số nến hiển thị",[60,100,200,500],index=1,key="pt10_detail_range")
+    with z: range_n=st.selectbox("Số nến",[60,100,200,500],index=1,key="pt10_detail_range")
     d=df.tail(range_n);rows=2 if panel=="Không" else 3
     fig=make_subplots(rows=rows,cols=1,shared_xaxes=True,vertical_spacing=.035,row_heights=[.78,.22] if rows==2 else [.62,.18,.20])
-    fig.add_trace(go.Candlestick(x=d.index,open=d["open"],high=d["high"],low=d["low"],close=d["close"],name="Nến giá"),row=1,col=1)
+    fig.add_trace(go.Candlestick(x=d.index,open=d["open"],high=d["high"],low=d["low"],close=d["close"],name="Nến giá",increasing_line_color=GREEN,decreasing_line_color=RED),row=1,col=1)
     cmap={"SMA20":"#64B5B5","SMA50":"#D4A64A","SMA200":"#648CC9","BB_upper":"#8694A8","BB_lower":"#8694A8","KT03_Trailing":"#E08E4B"}
     lines=[]
     for k in overlays:
@@ -111,19 +112,31 @@ def render_detail(get_data):
         if k in d: fig.add_trace(go.Scatter(x=d.index,y=d[k],name=k,line=dict(color=cmap[k],width=1.3),connectgaps=False),row=1,col=1)
     if daily:
         changes=transition_history(df)
-        for value,name,color,marker,price in [(1,"Mua mới S0P0","#24966F","triangle-up","low"),(-1,"Thoát S0P0","#D45B5B","triangle-down","high")]:
+        for value,name,color,marker,price in [(1,"Mua mới S0P0",GREEN,"triangle-up","low"),(-1,"Thoát S0P0",RED,"triangle-down","high")]:
             m=changes[(changes["Trend"]==value)&(changes.index>=d.index[0])]
             fig.add_trace(go.Scatter(x=m.index,y=d.loc[m.index,price],mode="markers",name=name,marker=dict(color=color,symbol=marker,size=10)),row=1,col=1)
-    fig.add_trace(go.Bar(x=d.index,y=d["volume"],name="Khối lượng",marker_color=np.where(d["close"]>=d["open"],"#26966F","#C65353")),row=2,col=1)
+    fig.add_trace(go.Bar(x=d.index,y=d["volume"],name="Khối lượng",marker_color=np.where(d["close"]>=d["open"],GREEN,RED)),row=2,col=1)
     keys={"RSI":["RSI"],"MACD":["MACD","Signal_Line"],"ADX / DI":["ADX","Plus_DI","Minus_DI"],"ATR":["ATR"],"Không":[]}[panel]
     for k in keys:
         if k in d: fig.add_trace(go.Scatter(x=d.index,y=d[k],name=k,line=dict(width=1.4)),row=3,col=1)
     if panel=="RSI":
         for level in (30,70): fig.add_hline(y=level,line_dash="dot",line_color="#8994A3",row=3,col=1)
     fig.update_layout(height=650 if rows==3 else 530,xaxis_rangeslider_visible=False,margin=dict(l=8,r=8,t=8,b=8),legend=dict(orientation="h"),hovermode="x unified")
-    st.plotly_chart(fig,use_container_width=True,config={"scrollZoom":True},key="pt10_stock_chart")
     if daily:
-        st.caption("Trailing Stop S0P0: "+show_value(last,"KT03_Trailing")+" | Stop tham chiếu R1 (Close − 2 ATR): "+f"{reference_stop(df):.2f}"+" (nghìn VND). R1 chỉ dùng sizing khi có mua mới; không phải lệnh Stop bổ sung hoặc giá khớp bảo đảm.")
+        chart_col,risk_col=st.columns([7,3])
+        with chart_col:
+            st.plotly_chart(style_chart(fig,600 if rows==3 else 500,f"{symbol}-{tf}-{range_n}-{panel}"),use_container_width=True,config={"scrollZoom":True,"displaylogo":False},key="pt10_stock_chart")
+        with risk_col:
+            st.subheader("Quản trị rủi ro")
+            st.metric("Trailing Stop S0P0",show_value(last,"KT03_Trailing"))
+            st.metric("Tham chiếu R1",f"{reference_stop(df):.2f}")
+            st.caption("Nghìn VND · R1 (Close − 2 ATR) chỉ dùng sizing khi có mua mới; không phải lệnh Stop bổ sung hoặc giá khớp bảo đảm.")
+            st.markdown("**Lý do tín hiệu**")
+            st.write(row["Lý do"] or "Không có lý do thoát mới được ghi nhận.")
+            st.caption("Trạng thái kỹ thuật không đồng nghĩa vị thế Paper hoặc lệnh đã khớp.")
+    else:
+        st.plotly_chart(style_chart(fig,600 if rows==3 else 500,f"{symbol}-{tf}-{range_n}-{panel}"),use_container_width=True,config={"scrollZoom":True,"displaylogo":False},key="pt10_stock_chart")
+    if daily:
         with st.expander("Điểm số và lý do tín hiệu"):
             st.write(row["Lý do"] or "Không có lý do thoát mới được ghi nhận.")
             fields=["SMA50","SMA200","RSI","MACD","ADX","ATR","Buy_Pct","Sell_Pct","RS60 (đpt)"]

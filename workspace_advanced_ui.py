@@ -9,7 +9,8 @@ from paper_trading_ui import acceptance_zip,error
 from workspace_acceptance import run_workspace_acceptance
 
 def render_settings():
-    st.title("Cài đặt & Nghiên cứu")
+    st.title("Hệ thống · Thiết lập & sao lưu")
+    st.caption("Kết nối TCBS ở thanh bên; API Key tại Streamlit Secrets. Dữ liệu tham chiếu và tài khoản giữ riêng trong phiên.")
     st.subheader("Dữ liệu tham chiếu")
     reference_panel()
     st.subheader("Tài khoản và sao lưu")

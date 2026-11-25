@@ -13,6 +13,7 @@ from paper_trading_core import replay,export_account,performance,readiness,new_a
 from paper_trading_ui import ACCOUNT,cash_text,error,render_risk
 from trading_dashboard_core import candidate_parameters,CANDIDATE
 from full_universe_core import SHA_B
+from terminal_v3_ui import style_chart, line_chart, GREEN, RED
 
 def go(page,symbol=None):
     st.session_state[NAV]=page
@@ -104,7 +105,8 @@ def portfolio_metrics(result):
 
 def render_home():
     st.title("Tổng quan giao dịch")
-    st.caption("Stock Bot V3 | S0P0 – A0 – RS60 – R1 | Paper Trading nghiên cứu, không gửi lệnh thật")
+    st.caption("U5-A0-RS60-P5-R050 · Dữ liệu lịch sử · Paper Trading nghiên cứu")
+    st.subheader("Thị trường & phiên dữ liệu")
     a,b=st.columns([2,1])
     with a: jump("Mở bộ quét cơ hội",PAGES[1],"pt09_home_scan")
     with b:
@@ -117,15 +119,16 @@ def render_home():
     if probe:
         d=probe["frame"];last=d["close"].iloc[-1];prev=d["close"].iloc[-2]
         st.metric("VN-Index (Close)",f"{last:,.2f}",f"{100*(last/prev-1):+.2f}%")
-        fig=go.Figure(go.Candlestick(x=d.index[-120:],open=d["open"].iloc[-120:],high=d["high"].iloc[-120:],low=d["low"].iloc[-120:],close=d["close"].iloc[-120:],name="VN-Index"))
+        fig=go.Figure(go.Candlestick(x=d.index[-120:],open=d["open"].iloc[-120:],high=d["high"].iloc[-120:],low=d["low"].iloc[-120:],close=d["close"].iloc[-120:],name="VN-Index",increasing_line_color=GREEN,decreasing_line_color=RED))
         for n,color in ((50,"#D4A64A"),(200,"#648CC9")):
             fig.add_scatter(x=d.index[-120:],y=d["close"].rolling(n).mean().iloc[-120:],name=f"SMA{n}",line={"color":color,"width":1.3})
         fig.update_layout(height=350,xaxis_rangeslider_visible=False,margin=dict(l=5,r=5,t=8,b=5),legend=dict(orientation="h"))
-        st.plotly_chart(fig,use_container_width=True,key="pt09_index_chart")
+        st.plotly_chart(style_chart(fig,350,"vnindex"),use_container_width=True,config={"displaylogo":False,"scrollZoom":True},key="pt09_index_chart")
     account=st.session_state.get(ACCOUNT);result=None
     if account:
         try: result=replay(account)
         except Exception as exc: error(exc)
+    st.subheader("Tài khoản mô phỏng")
     portfolio_metrics(result)
     if result and result["daily"]:
         p=performance(result);last=result["daily"][-1]
@@ -150,11 +153,12 @@ def render_home():
         st.dataframe(focus[["Mã","Tín hiệu","Hạng mua mới (kỹ thuật)","RS60 (đpt)","Buy Score (%)"]],hide_index=True,use_container_width=True)
     if result and result["daily"]:
         st.subheader("Equity mô phỏng")
-        st.line_chart(pd.DataFrame(result["daily"]).set_index("Ngày")[["Equity"]])
+        line_chart(pd.DataFrame(result["daily"]).set_index("Ngày")[["Equity"]],"v3_home_equity")
 
 def render_opportunities():
     st.title("Cơ hội giao dịch")
-    st.caption("Chiến lược chính U5-A0-RS60-P5-R050 · Khung Ngày · 120 mã theo dõi / 115 mã mẫu")
+    st.caption("U5-A0-RS60-P5-R050 · Khung Ngày · 120 mã theo dõi / 115 mã mẫu")
+    st.subheader("01 · Chuẩn bị và quét")
     with st.expander("Dữ liệu tham chiếu",expanded=REF not in st.session_state):
         reference_panel()
     market_caption()
@@ -186,6 +190,8 @@ def render_opportunities():
         st.caption(f"Phiên {saved['identity'][0]} | Ghi nhận {saved['updated']}. Xếp hạng trên các mã đạt dữ liệu, không tự phê duyệt mua.")
         if saved["identity"][0]!=str(local_now().date()): st.warning("Phiên cũ: chỉ tham khảo, không ghi Paper hôm nay.")
     else: st.info("Chưa có kết quả quét phiên mới. Hiển thị Watchlist, không có giá hoặc tín hiệu giả.")
+    st.subheader("02 · Bảng cơ hội")
+    st.caption("Bộ lọc chỉ đổi cách hiển thị; hạng mua mới được giữ nguyên. Nhấn tiêu đề cột để sắp xếp.")
     x,y,z=st.columns([1,2,2])
     with x: q=st.text_input("Tìm mã",key="pt09_search")
     with y: sector=st.multiselect("Ngành",sorted(d["Ngành (sơ bộ)"].unique()),key="pt09_sectors")
@@ -196,9 +202,11 @@ def render_opportunities():
     shown=filter_opportunities(d,q,sector,signals,quality)
     cols=["Mã","Ngành (sơ bộ)","Close (nghìn VND)","Tín hiệu","Hạng mua mới (kỹ thuật)","RS60 (đpt)","Buy Score (%)","GTGD 20 nến (tỷ VND)","Kỹ thuật"]
     if deep: cols+=["Sell Score (%)","Phiên cuối","Phạm vi KT18","Dữ liệu hồi cứu","Lý do"]
-    st.dataframe(shown[cols],hide_index=True,use_container_width=True,height=470,column_config={
+    st.dataframe(shown[cols],hide_index=True,use_container_width=True,height=480,column_config={
+        "Mã":st.column_config.TextColumn("Mã",pinned=True),
+        "Hạng mua mới (kỹ thuật)":st.column_config.NumberColumn("Hạng mua mới",format="%d",help="Hạng từ bộ quét đã xác minh, không xếp hạng lại khi lọc."),
         "RS60 (đpt)":st.column_config.NumberColumn(format="%.2f"),
-        "Buy Score (%)":st.column_config.NumberColumn(format="%.1f"),
+        "Buy Score (%)":st.column_config.NumberColumn("Điểm mua (%)",format="%.1f",help="Điểm kỹ thuật, không phải xác suất thắng."),
         "GTGD 20 nến (tỷ VND)":st.column_config.NumberColumn(format="%.2f"),
         "Close (nghìn VND)":st.column_config.NumberColumn(format="%.2f")})
     st.caption(f"{len(shown)}/120 mã · RS60 là chênh lệch lợi nhuận giá so với VN-Index (điểm phần trăm). Thanh khoản là Close × Volume, không phải GTGD thực tế.")
@@ -214,7 +222,8 @@ def render_opportunities():
                 z.writestr("stock_bot_pt09_co_hoi.csv",d.to_csv(index=False).encode("utf-8-sig"))
                 z.writestr("manifest.json",json.dumps({"mode":"LIVE","session":saved["identity"][0],"index_sha":saved["identity"][1],"reference_sha":SHA_B,"updated":saved["updated"],"scanned":len(saved["rows"]),"forward_evidence":False},ensure_ascii=False))
             st.download_button("Tải ZIP kết quả quét",b.getvalue(),"stock_bot_pt09_co_hoi.zip","application/zip",key="pt09_scan_zip")
-    st.subheader("Ghi phiên mô phỏng")
+    st.divider()
+    st.subheader("03 · Ghi phiên mô phỏng")
     if st.session_state.get("pt09_recorded"): st.success("Đã ghi phiên "+st.session_state["pt09_recorded"]+". Hãy sao lưu JSON.")
     paper_record("pt09_op")
     if st.session_state.get(ACCOUNT):

@@ -5,6 +5,7 @@ from workspace_core import SECTIONS,PAGES,weights
 from workspace_ui import account_setup,portfolio_metrics,jump,paper_backup,paper_record
 from paper_trading_ui import ACCOUNT,error,render_risk,cash_text
 from paper_trading_core import replay,performance,risk_preview,POLICY,readiness
+from terminal_v3_ui import line_chart
 
 def table(rows,empty):
     if len(rows): st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True)
@@ -32,7 +33,7 @@ def render_portfolio():
         c.metric("P&L mở",cash_text(last["P&L mở"]) if last else "0 đ")
         if last:
             st.caption("Phiên đã ghi cuối: "+last["Ngày"])
-            st.line_chart(pd.DataFrame(result["daily"]).set_index("Ngày")[["Equity"]])
+            line_chart(pd.DataFrame(result["daily"]).set_index("Ngày")[["Equity"]],"v3_port_equity","Đường vốn mô phỏng")
         else: st.info("Chưa ghi nhận phiên nào. Phiên đầu chỉ thu thập tín hiệu.")
         jump("Quét và ghi phiên mới",PAGES[1],"pt09_port_scan")
     elif section=="Vị thế":
@@ -77,7 +78,8 @@ def render_portfolio():
         m=performance(result);a,b,c=st.columns(3)
         a.metric("Lợi nhuận",f"{m['Lợi nhuận (%)']:+.2f}%");b.metric("Drawdown tối đa",f"{m['MDD (%)']:.2f}%");c.metric("Lệnh đóng",m["Lệnh đóng"])
         d=pd.DataFrame(result["daily"]).set_index("Ngày")
-        st.line_chart(d[["Equity"]]);st.line_chart(d[["Drawdown (%)"]])
+        line_chart(d[["Equity"]],"v3_port_perf_equity","Đường vốn mô phỏng")
+        line_chart(d[["Drawdown (%)"]],"v3_port_perf_dd","Drawdown theo phiên")
         st.dataframe(pd.DataFrame([m]),hide_index=True,use_container_width=True)
         with st.expander("Chi tiết từng phiên"): st.dataframe(d,use_container_width=True)
         st.caption("Chỉ nhật ký đã ghi; CAGR/Calmar chưa tính trước một năm. Các chỉ số ít quan sát không chứng minh hiệu quả.")
