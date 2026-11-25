@@ -16,7 +16,10 @@ from full_universe_core import SHA_B
 
 def go(page,symbol=None):
     st.session_state[NAV]=page
-    if symbol: st.session_state[SYMBOL]=symbol
+    if symbol:
+        st.session_state[SYMBOL]=symbol
+        st.session_state["pt10_detail_symbol"]=symbol
+        st.session_state["pt10_detail_tf"]="Ngày"
 
 def jump(label,page,key,symbol=None):
     st.button(label,key=key,on_click=go,args=(page,symbol),use_container_width=True)
@@ -27,6 +30,8 @@ def reference_panel():
         if st.button("Gỡ ZIP tham chiếu khỏi phiên",key="pt09_remove_ref"):
             st.session_state.pop(REF,None)
             st.session_state.pop(REPORT,None)
+            st.session_state.pop("pt10_single",None)
+            st.session_state.pop("pt10_acceptance",None)
             st.rerun()
     else:
         st.caption("Tải một lần ZIP U5-B đã nghiệm thu (115 mã). Dữ liệu giữ trong session riêng, không lưu lên GitHub.")
@@ -99,7 +104,7 @@ def portfolio_metrics(result):
 
 def render_home():
     st.title("Tổng quan giao dịch")
-    st.caption("Stock Bot V3 | Paper Trading nghiên cứu • Không gửi lệnh thật")
+    st.caption("Stock Bot V3 | S0P0 – A0 – RS60 – R1 | Paper Trading nghiên cứu, không gửi lệnh thật")
     a,b=st.columns([2,1])
     with a: jump("Mở bộ quét cơ hội",PAGES[1],"pt09_home_scan")
     with b:
@@ -149,7 +154,7 @@ def render_home():
 
 def render_opportunities():
     st.title("Cơ hội giao dịch")
-    st.caption("U5: 120 mã theo dõi · 115 mã trong mẫu cố định · Khung Ngày · S0P0 / RS60")
+    st.caption("Chiến lược chính U5-A0-RS60-P5-R050 · Khung Ngày · 120 mã theo dõi / 115 mã mẫu")
     with st.expander("Dữ liệu tham chiếu",expanded=REF not in st.session_state):
         reference_panel()
     market_caption()

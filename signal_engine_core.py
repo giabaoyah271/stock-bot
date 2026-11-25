@@ -59,7 +59,7 @@ def validate_index(index,reference,target,now=None):
     out=d["close"]
     return out,hashlib.sha256(out.to_csv(float_format="%.17g").encode()).hexdigest()
 
-def scan_symbol(s,raw,index,old,zeros,now=None):
+def scan_symbol(s,raw,index,old,zeros,now=None,capture=None):
     if s not in U5: raise ValueError("Mã ngoài U5")
     raw=slice_raw_history(raw,index.index[-1])
     if not isinstance(raw,pd.DataFrame) or raw.empty: raise ValueError("Không có dữ liệu TCBS")
@@ -81,7 +81,7 @@ def scan_symbol(s,raw,index,old,zeros,now=None):
     past=d.loc[:END]
     if not past.index.equals(old[s].index): raise ValueError("Lịch khác mẫu đã nghiệm thu")
     for k in OHLCV: np.testing.assert_allclose(past[k],old[s][k],rtol=1e-9,atol=1e-8,err_msg=s+" lịch sử "+k+" thay đổi")
-    return replay_row(s,d,index,old[s])
+    return replay_row(s,d,index,old[s],capture=capture)
 
 def history_digest(d):
     """Canonical OHLCV fingerprint, including ordered local trading dates."""
@@ -89,7 +89,7 @@ def history_digest(d):
     x.index=local_days(x.index)
     return hashlib.sha256(x.to_csv(float_format="%.17g").encode()).hexdigest()
 
-def replay_row(s,d,index,old):
+def replay_row(s,d,index,old,capture=None):
     """Recompute using exact accepted OHLCV; same path for frozen test and new scan."""
     f=calculate_indicators(d,record_stop=True)
     verify_baseline(f,RESEARCH[1]);verify_p0(f,RESEARCH[1],BY_CODE["S0"])
@@ -100,12 +100,17 @@ def replay_row(s,d,index,old):
         if not out.loc[:END,k].fillna("").astype(str).equals(old[k].fillna("").astype(str)): raise ValueError(s+" tín hiệu lịch sử khác "+k)
     x=enrich_causal({s:out},index,1000)[s];a,b=x.iloc[-2],x.iloc[-1]
     if not np.isfinite([b["RS60 (đpt)"],b["Buy_Pct"],b["Sell_Pct"],b["ATR"],b["GTGD proxy 20 (VND)"]]).all(): raise ValueError("Chỉ báo phiên cuối không hợp lệ")
-    return {"Mã":s,"Ngành":SECTORS[s],"Kỹ thuật":"Khớp mẫu KT18","Nến":len(x),"Phiên cuối":index.index[-1].date().isoformat(),
+    row={"Mã":s,"Ngành":SECTORS[s],"Kỹ thuật":"Khớp mẫu KT18","Nến":len(x),"Phiên cuối":index.index[-1].date().isoformat(),
         "Tín hiệu":state(a["Trend"],b["Trend"]),"Trend trước":int(a["Trend"]),"Trend":int(b["Trend"]),
         "Open (nghìn VND)":float(b["open"]),"Close (nghìn VND)":float(b["close"]),"ATR (nghìn VND)":float(b["ATR"]),
         "SHA lịch sử":history_digest(d),"SHA lịch sử trước phiên":history_digest(d.iloc[:-1]),"Buy Score (%)":float(b["Buy_Pct"]),"Sell Score (%)":float(b["Sell_Pct"]),
         "RS60 (đpt)":float(b["RS60 (đpt)"]),"GTGD proxy 20 (VND)":float(b["GTGD proxy 20 (VND)"]),
         "Cảnh báo thanh khoản":"Dưới 10 tỷ" if b["GTGD proxy 20 (VND)"]<10e9 else "","Lý do":str(b["Reason"])}
+    if capture is not None:
+        # Only retain chart columns; never retain V1 Trend/Stop fields separately.
+        cols=[*OHLCV,"SMA20","SMA50","SMA200","BB_upper","BB_lower","RSI","MACD","Signal_Line","ADX","Plus_DI","Minus_DI","ATR","Buy_Pct","Sell_Pct","Trend","Reason","KT03_Trailing","RS60 (đpt)","GTGD proxy 20 (VND)"]
+        capture(s,x[cols].copy())
+    return row
 
 def reference_batch(symbols,old,index,progress=None):
     """Offline test at END, not newly observed market data or forward evidence."""
@@ -126,11 +131,11 @@ def reference_batch(symbols,old,index,progress=None):
         if progress: progress(i+1,len(symbols),s)
     return rows
 
-def scan_batch(symbols,loader,index,old,zeros,now,progress=None):
+def scan_batch(symbols,loader,index,old,zeros,now,progress=None,capture=None):
     if not symbols or len(set(symbols))!=len(symbols) or not set(symbols).issubset(U5): raise ValueError("Lô không hợp lệ")
     rows=[]
     for i,s in enumerate(symbols):
-        try: row=scan_symbol(s,loader(s),index,old,zeros,now)
+        try: row=scan_symbol(s,loader(s),index,old,zeros,now,capture=capture)
         except Exception as exc:
             row={"Mã":s,"Ngành":SECTORS[s],"Kỹ thuật":"Chưa đạt / cần kiểm tra","Lý do":str(exc)[:350] if isinstance(exc,(ValueError,AssertionError)) else type(exc).__name__}
         row.update({"Tuân thủ":"Chưa xác minh","Điều kiện mua":"Chưa phê duyệt","Ghi nhận (VN)":local_now().isoformat(),"Chế độ":"QUÉT PHIÊN MỚI"})

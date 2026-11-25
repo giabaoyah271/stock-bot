@@ -41,9 +41,12 @@ def build_report(ref_bytes,ix,loader,scope="ALL",saved=None,now=None,progress=No
     identity=(probe["last"],digest,SHA_B,"LIVE")
     rows=dict(saved["rows"]) if saved and saved.get("identity")==identity and scope!="ALL" else {}
     symbols=U5 if scope=="ALL" else BATCHES[scope]
-    for row in scan_batch(symbols,loader,index,old,zeros,stamp,progress):
+    charts=dict(saved.get("charts",{})) if saved and saved.get("identity")==identity and scope!="ALL" else {}
+    for s in symbols: charts.pop(s,None)
+    for row in scan_batch(symbols,loader,index,old,zeros,stamp,progress,capture=lambda s,d:charts.__setitem__(s,d)):
         rows[row["Mã"]]=row
-    return {"identity":identity,"rows":rows,"updated":local_now().isoformat(),"previous_session":str(index.index[-2].date()),
+        if row.get("Kỹ thuật")!="Khớp mẫu KT18": charts.pop(row["Mã"],None)
+    return {"identity":identity,"rows":rows,"charts":charts,"updated":local_now().isoformat(),"previous_session":str(index.index[-2].date()),
             "previous_index_sha":hashlib.sha256(index.iloc[:-1].to_csv(float_format="%.17g").encode()).hexdigest()}
 
 def opportunities(report=None):
