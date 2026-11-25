@@ -8,7 +8,7 @@ Tokens: background #020617, surface #0F172A, elevated #1E293B, border #334155, i
 
 ## Inventory / migration
 - Trading: main V1 Trend, entry, latest price, price variation, ATR reference, T1–T3, candlesticks, volume, RSI, existing SMA/MACD/ADX/ATR, signal events and optional history.
-- Scanner: original universe, formulas and 1.1s delay; result retained per session for latest scanned timeframe, filters/sort do not refetch; failures counted.
+- Scanner: original universe, formulas and 1.1s delay; results retained per session by timeframe, filters/sort do not refetch; failures counted.
 - Research: original V1/V2 scoring comparison, single backtest, 5 strategies, V2.1 trade audit, SMA filter, closed-trade equity, multi-stock, risk batch, single equity and Walk-Forward; existing CSVs preserved.
 - System: original TCBS form and authentication, original OHLCV checks; auth status is last authentication outcome, not live connectivity.
 - No algorithm changes: calculate_indicators/get_data and universe copied verbatim; backtesting/risk/scoring modules untouched. Existing date warning copied, including weekly behavior. No change to next-open fills/T+2. Displayed ATR reference is not internal trailing stop. No live prices or orders added.
@@ -18,4 +18,4 @@ Tokens: background #020617, surface #0F172A, elevated #1E293B, border #334155, i
 Run python -m unittest discover -s tests -p 'test_*.py' -v and python -m compileall -q app.py terminal_ui.py multi_backtest_ui.py.
 Open a separate Streamlit Cloud test app using this branch, entrypoint app.py, same secrets privately. Do not change production. Authenticate and compare HPG/MBB/FPT and all 12 accepted tickers on identical inputs, all timeframes; verify prices, signals, trades, win rate, PF, drawdown, CSV and API error states. Check widths 375/390/768/1024/1280/1440/1920. Confirm no extra API calls on scanner filters. Verify focus and contrast, chart labels and touch targets.
 Rollback: production cloud-dev never modified; discard test app or select baseline branch. Merge only after approval.
-Runtime, TCBS and browser verification are not implied by source checks.
+CI includes source comparison against baseline and Streamlit AppTest smoke tests with synthetic inputs, not actual TCBS or browser rendering. Runtime, TCBS and browser verification are not implied by source checks.

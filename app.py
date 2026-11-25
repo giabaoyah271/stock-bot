@@ -12,7 +12,6 @@ from performance_metrics import profit_factor_money
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(page_title="Stock Bot | Trading Intelligence", layout="wide", initial_sidebar_state="collapsed")
 TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
-# --- XAC THUC TCBS ---
 # --- 2. HÀM LẤY TOP 100 THANH KHOẢN ---
 @st.cache_data(ttl=3600)
 def get_top_100_liquidity():
@@ -344,11 +343,10 @@ def get_data(symbol, tf):
             continue
     return pd.DataFrame()
 
-
 # --- 5. GIAO DIỆN CHÍNH ---
 from terminal_ui import shell, render_trading, render_scanner, render_research, render_system
 
-page = shell()
+page, auth_status = shell()
 if page == "Giao dịch":
     render_trading(get_data)
 elif page == "Quét tín hiệu":
@@ -357,3 +355,4 @@ elif page == "Nghiên cứu":
     render_research(get_data)
 else:
     render_system(get_data, sources)
+    auth_status.caption("TCBS · " + st.session_state.get("terminal_auth", "Chưa xác nhận xác thực trong phiên"))

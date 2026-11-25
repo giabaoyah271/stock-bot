@@ -61,8 +61,9 @@ def shell():
         st.session_state["terminal_page"] = "Giao dịch"
     st.title("STOCK BOT")
     st.caption("TRADING INTELLIGENCE  /  Dữ liệu lịch sử · Không đặt lệnh thật")
-    st.caption("TCBS · " + st.session_state.get("terminal_auth", "Chưa xác nhận xác thực trong phiên"))
-    return st.radio("Khu vực", PAGES, horizontal=True, key="terminal_page")
+    auth_status = st.empty()
+    auth_status.caption("TCBS · " + st.session_state.get("terminal_auth", "Chưa xác nhận xác thực trong phiên"))
+    return st.radio("Khu vực", PAGES, horizontal=True, key="terminal_page"), auth_status
 
 def _save_symbol():
     st.session_state["terminal_symbol"] = st.session_state["terminal_symbol_input"].strip().upper()
@@ -119,7 +120,7 @@ def render_auth(sources):
                 )
 
 def render_history(df):
-    with st.expander("Lịch sử tín hiệu 30 nến gần nhất"):
+    with st.container():
         columns = [
             "close", "RSI", "ADX",
             "Plus_DI", "Minus_DI",
@@ -170,7 +171,7 @@ def render_history(df):
             )
 
 def render_comparison(df):
-    with st.expander("So sánh điểm mua/bán V1 và V2"):
+    with st.container():
         try:
             from scoring_v2 import tinh_diem_v2
 
@@ -210,7 +211,7 @@ def render_comparison(df):
             )
 
 def render_single_backtest(df):
-    with st.expander("Backtesting - Giao dịch mô phỏng"):
+    with st.container():
         try:
             trades = tao_bang_giao_dich(df)
         
@@ -535,7 +536,7 @@ def render_single_backtest(df):
             )
 
 def render_quality(df):
-    with st.expander("Kiểm tra chất lượng dữ liệu TCBS"):
+    with st.container():
         cols = ["open", "high", "low", "close", "volume"]
         data = df[cols].apply(pd.to_numeric, errors="coerce")
 
@@ -648,12 +649,16 @@ def render_trading(get_data):
     if is_green:
         st.success("VÙNG XANH · Tiếp tục nắm giữ theo mô hình")
     else:
-        st.error("VÙNG ĐỎ · Đứng ngoài quan sát theo mô hình")
+        st.markdown("**:red[VÙNG ĐỎ] · Đứng ngoài quan sát theo mô hình**")
     a,b,c=st.columns(3)
     a.metric("Giá phiên gần nhất",number(last_price))
-    b.metric("Giá tại lần chuyển vùng",number(entry_price))
+    b.metric("Giá tại mốc trạng thái",number(entry_price))
     c.metric("Biến động từ tín hiệu",number(profit,1,"%"))
-    st.caption("Biến động giá kể từ tín hiệu, không phải lãi/lỗ đã thực hiện.")
+    st.caption("Biến động giá kể từ tín hiệu, không phải lãi/lỗ đã thực hiện. Nếu chưa có lần chuyển vùng trong lịch sử tải về, mốc là nến đầu tiên.")
+    if timeframe=="1 Giờ":
+        st.caption(f"Nến cuối: {df.index[-1]} (theo thời gian nguồn dữ liệu)")
+    if is_green:
+        st.write(f"Mức tham chiếu ATR (2×): **{number(stop_loss)}** · Đơn vị giá theo nguồn TCBS")
     left,right=st.columns([7,3])
     with left:
         st.subheader("Biểu đồ kỹ thuật")
@@ -705,8 +710,10 @@ def render_scanner(get_data, universe):
                 failures.append(s)
             bar.progress(min((i+1)/len(universe),1.0),text=f"Đã xử lý {i+1}/{len(universe)} mã")
             time.sleep(1.1)
-        st.session_state["terminal_scan"]={"tf":timeframe,"results":results,"failed":failures,"total":len(universe),"at":datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")}
-    report=st.session_state.get("terminal_scan")
+        reports=dict(st.session_state.get("terminal_scan",{}))
+        reports[timeframe]={"tf":timeframe,"results":results,"failed":failures,"total":len(universe),"at":datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")}
+        st.session_state["terminal_scan"]=reports
+    report=st.session_state.get("terminal_scan",{}).get(timeframe)
     if not report or report["tf"]!=timeframe:
         st.info("Chưa có kết quả cho khung thời gian này. Nhấn Bắt đầu quét.")
         return
@@ -775,7 +782,7 @@ def render_research(get_data):
         if symbol:
             st.caption(f"{symbol} · {tf} · Khớp mô phỏng mở cửa phiên tiếp theo đối với Backtesting.")
             # Explicitly opt in; a collapsed expander alone would execute.
-            if st.checkbox("Hiển thị báo cáo",key="terminal_research_show"):
+            if st.checkbox("Hiển thị báo cáo",key="terminal_research_show_single" if tool=="Backtesting một mã" else "terminal_research_show_compare"):
                 df=get_data(symbol,tf)
                 if not ready(df):
                     st.warning("Không đủ dữ liệu.")
