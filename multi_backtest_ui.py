@@ -80,6 +80,10 @@ def render_multi_backtest(get_data):
         from universe_prepare_ui import render_universe_prepare
         render_universe_prepare()
 
+    with st.expander("KT17 – Full Universe Backtesting (106/115 mã)", expanded=False):
+        from full_universe_ui import render_full_universe
+        render_full_universe()
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
