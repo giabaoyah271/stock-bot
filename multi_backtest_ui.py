@@ -14,7 +14,7 @@ PERIOD_CHOICES = (
 )
 
 
-def render_multi_backtest(get_data):
+def render_multi_backtest(get_data, include_advanced=True):
     """Keep the app's TCBS connection and cached historical loader unchanged."""
     st.header("Backtesting đa mã và kiểm định chiến lược")
     st.caption(
@@ -22,13 +22,14 @@ def render_multi_backtest(get_data):
         "được tải qua cache có sẵn của Stock Bot. Không phát lệnh giao dịch."
     )
 
-    with st.expander("Tổng hợp Equity và Drawdown đa mã (thử nghiệm)", expanded=False):
-        from risk_batch_ui import render_batch_risk
-        render_batch_risk(get_data)
+    if include_advanced:
+        with st.expander("Tổng hợp Equity và Drawdown đa mã (thử nghiệm)", expanded=False):
+            from risk_batch_ui import render_batch_risk
+            render_batch_risk(get_data)
 
-    with st.expander("Walk-Forward Backtesting (kiểm định theo thời gian)", expanded=False):
-        from walk_forward_ui import render_walk_forward
-        render_walk_forward(get_data)
+        with st.expander("Walk-Forward Backtesting (kiểm định theo thời gian)", expanded=False):
+            from walk_forward_ui import render_walk_forward
+            render_walk_forward(get_data)
 
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
