@@ -415,7 +415,7 @@ from trading_dashboard_core import HOME, SIGNALS, WATCHLIST, DETAIL, SCAN, PORTF
 from trading_dashboard_ui import render_overview, render_watchlist, render_portfolio_status, render_performance_status
 
 st.sidebar.title("Stock Bot V3")
-st.sidebar.caption("PT02 · Nghiên cứu")
+st.sidebar.caption("PT03–PT08 · Paper Trading nghiên cứu")
 mode = st.sidebar.radio("Điều hướng", PAGES, key=NAV_KEY, format_func=lambda p: LABELS.get(p,p))
 timeframe = (
     st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)

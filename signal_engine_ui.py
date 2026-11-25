@@ -1,5 +1,5 @@
 """On-demand U5 technical scan. No account state, trade quantity or orders."""
-import time,io,zipfile,json
+import time,io,zipfile,json,hashlib
 import pandas as pd
 import streamlit as st
 from signal_engine_core import SCOPE,U5,BATCHES,read_reference,validate_index,scan_batch,reference_batch,report_rows,local_now,local_days,END
@@ -54,8 +54,8 @@ def render_signal_engine():
             batch=U5 if scope=="ALL" else BATCHES[scope]
             progress=lambda i,n,s:bar.progress(i/n,text=f"{i}/{n}: {s}")
             if mode=="TEST":
-                import hashlib
                 digest=hashlib.sha256(reference.to_csv(float_format="%.17g").encode()).hexdigest()
+                index=reference
                 result=reference_batch(batch,old,reference,progress)
             else:
                 from vnstock import Market
@@ -69,7 +69,9 @@ def render_signal_engine():
             rows=dict(saved["rows"]) if saved and saved["identity"]==identity and scope!="ALL" else {}
             for row in result:
                 rows[row["Mã"]]=row
-            st.session_state["pt02_report"]={"identity":identity,"rows":rows,"updated":local_now().isoformat()}
+            st.session_state["pt02_report"]={"identity":identity,"rows":rows,"updated":local_now().isoformat(),
+                "previous_session":index.index[-2].date().isoformat(),
+                "previous_index_sha":hashlib.sha256(index.iloc[:-1].to_csv(float_format="%.17g").encode()).hexdigest()}
         except Exception as exc:
             st.error(str(exc)[:450] if isinstance(exc,(ValueError,AssertionError)) else type(exc).__name__)
             return

@@ -15,8 +15,8 @@ def jump(label,page,key):
 
 def render_overview():
     st.title("Stock Bot V3")
-    st.caption("Không gian nghiên cứu và hỗ trợ quyết định giao dịch | PT02")
-    st.warning("Chưa có tài khoản Paper Trading hoạt động. Không gửi lệnh, không phê duyệt mua. Các thông số dưới đây là cấu hình nghiên cứu, không phải số dư hay vị thế thực.")
+    st.caption("Không gian nghiên cứu và hỗ trợ quyết định giao dịch | PT03–PT08")
+    st.warning("Paper Trading nghiên cứu, không gửi lệnh thật, không phê duyệt mua. Thông số dưới đây là cấu hình nghiên cứu, không phải số dư tài khoản.")
     p=Policy()
     d=watchlist_frame()
     a,b,c,e=st.columns(4)
@@ -43,15 +43,15 @@ def render_overview():
         st.caption("Danh sách quét cũ; không phải bộ quét U5-A0-RS60.")
         jump("Mở bộ quét V1",SCAN,"pt01_home_scan")
         st.markdown("**Danh mục và nhật ký**")
-        st.caption("Chưa khởi tạo tài khoản mô phỏng; trạng thái triển khai PT03–PT05.")
+        st.caption("Risk Manager, tài khoản Paper và nghiệm thu tích hợp PT03–PT08.")
         jump("Xem trạng thái danh mục",PORTFOLIO,"pt01_home_portfolio")
         st.markdown("**Hiệu suất và kiểm chứng**")
-        st.caption("PT06–PT08 chưa triển khai; không hiển thị Equity giả.")
+        st.caption("Hiệu suất từ nhật ký Paper, Forward Validation và điều kiện sẵn sàng.")
         jump("Xem trạng thái kiểm chứng",PERFORMANCE,"pt01_home_performance")
     st.subheader("Ứng viên kiểm chứng")
     st.markdown(f"**{CANDIDATE}**")
     st.dataframe(candidate_parameters(),hide_index=True,use_container_width=True)
-    st.caption("Ngân sách rủi ro không đảm bảo mức lỗ tối đa. Chưa đóng băng ứng viên mới cho kiểm chứng tiến tới; chưa xác minh pháp lý toàn bộ U5.")
+    st.caption("Ngân sách rủi ro không đảm bảo mức lỗ tối đa. Khóa cấu hình khi khởi tạo tài khoản Paper; chưa xác minh pháp lý toàn bộ U5.")
 
 def render_watchlist():
     st.title("Watchlist U5")
@@ -77,21 +77,12 @@ def render_watchlist():
     jump("Về tổng quan",HOME,"pt01_watch_home")
 
 def render_portfolio_status():
-    st.title("Danh mục & Nhật ký")
-    st.info("Chưa khởi tạo tài khoản Paper Trading. Không có dữ liệu số dư, vị thế hoặc lịch sử lệnh để hiển thị.")
-    st.subheader("Thông số ứng viên (chỉ đọc)")
-    st.dataframe(candidate_parameters(),hide_index=True,use_container_width=True)
-    st.subheader("Chức năng sẽ triển khai")
-    st.write("PT03 — Risk Manager: tính quy mô vị thế từ dữ liệu và ngân sách rủi ro.")
-    st.write("PT04 — Portfolio Manager: tiền mặt, vị thế, tỷ trọng và ngân sách rủi ro.")
-    st.write("PT05 — Nhật ký Paper Trading: ghi nhận giao dịch mô phỏng theo thời gian, không gửi lệnh thật.")
+    from paper_trading_ui import render_portfolio
+    render_portfolio()
     jump("Về tổng quan",HOME,"pt01_port_home")
 
 def render_performance_status():
-    st.title("Hiệu suất & Kiểm chứng")
-    st.warning("Chưa có nhật ký Paper Trading hoặc chuỗi Equity tiến tới. Không hiển thị lợi nhuận hồi cứu như hiệu suất thực tế.")
-    st.write("PT06 — Dashboard hiệu suất từ nhật ký mô phỏng đã ghi nhận.")
-    st.write("PT07 — Đóng băng cấu hình ứng viên và thu thập dữ liệu tiến tới độc lập.")
-    st.write("PT08 — Đánh giá mức sẵn sàng, gồm điều kiện dữ liệu, tuân thủ và rủi ro.")
+    from paper_trading_ui import render_performance
+    render_performance()
     jump("Xem Backtesting KT01–KT18",RESEARCH_PAGE,"pt01_perf_research")
     jump("Về tổng quan",HOME,"pt01_perf_home")

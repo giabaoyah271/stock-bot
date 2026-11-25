@@ -83,6 +83,12 @@ def scan_symbol(s,raw,index,old,zeros,now=None):
     for k in OHLCV: np.testing.assert_allclose(past[k],old[s][k],rtol=1e-9,atol=1e-8,err_msg=s+" lịch sử "+k+" thay đổi")
     return replay_row(s,d,index,old[s])
 
+def history_digest(d):
+    """Canonical OHLCV fingerprint, including ordered local trading dates."""
+    x=d[list(OHLCV)].copy()
+    x.index=local_days(x.index)
+    return hashlib.sha256(x.to_csv(float_format="%.17g").encode()).hexdigest()
+
 def replay_row(s,d,index,old):
     """Recompute using exact accepted OHLCV; same path for frozen test and new scan."""
     f=calculate_indicators(d,record_stop=True)
@@ -96,7 +102,8 @@ def replay_row(s,d,index,old):
     if not np.isfinite([b["RS60 (đpt)"],b["Buy_Pct"],b["Sell_Pct"],b["ATR"],b["GTGD proxy 20 (VND)"]]).all(): raise ValueError("Chỉ báo phiên cuối không hợp lệ")
     return {"Mã":s,"Ngành":SECTORS[s],"Kỹ thuật":"Khớp mẫu KT18","Nến":len(x),"Phiên cuối":index.index[-1].date().isoformat(),
         "Tín hiệu":state(a["Trend"],b["Trend"]),"Trend trước":int(a["Trend"]),"Trend":int(b["Trend"]),
-        "Close (nghìn VND)":float(b["close"]),"ATR (nghìn VND)":float(b["ATR"]),"Buy Score (%)":float(b["Buy_Pct"]),"Sell Score (%)":float(b["Sell_Pct"]),
+        "Open (nghìn VND)":float(b["open"]),"Close (nghìn VND)":float(b["close"]),"ATR (nghìn VND)":float(b["ATR"]),
+        "SHA lịch sử":history_digest(d),"SHA lịch sử trước phiên":history_digest(d.iloc[:-1]),"Buy Score (%)":float(b["Buy_Pct"]),"Sell Score (%)":float(b["Sell_Pct"]),
         "RS60 (đpt)":float(b["RS60 (đpt)"]),"GTGD proxy 20 (VND)":float(b["GTGD proxy 20 (VND)"]),
         "Cảnh báo thanh khoản":"Dưới 10 tỷ" if b["GTGD proxy 20 (VND)"]<10e9 else "","Lý do":str(b["Reason"])}
 
