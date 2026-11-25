@@ -24,69 +24,66 @@ def render_multi_backtest(get_data):
         "được tải qua cache có sẵn của Stock Bot. Không phát lệnh giao dịch."
     )
 
-    with st.expander("Tổng hợp Equity và Drawdown đa mã (thử nghiệm)", expanded=False):
-        from risk_batch_ui import render_batch_risk
-        render_batch_risk(get_data)
-
-    with st.expander("Walk-Forward Backtesting (kiểm định theo thời gian)", expanded=False):
-        from walk_forward_ui import render_walk_forward
-        render_walk_forward(get_data)
-
-    with st.expander("KT01 + KT02 – Phân tích giao dịch và MAE/MFE", expanded=False):
-        from trade_diagnostics_ui import render_trade_diagnostics
-        render_trade_diagnostics(get_data)
-
-    with st.expander("KT03 – Thử nghiệm Initial Stop Loss", expanded=False):
-        from initial_stop_ui import render_initial_stop
-        render_initial_stop(get_data)
-
-    with st.expander("KT13 – Thử nghiệm Profit Protection", expanded=False):
-        from profit_protection_ui import render_profit_protection
-        render_profit_protection(get_data)
-
-    with st.expander("KT06 + KT07 – Position Sizing và Portfolio Backtesting", expanded=False):
-        from portfolio_ui import render_portfolio
-        render_portfolio(get_data)
-
-    with st.expander("KT14 + KT10 – Volatility và Anti-chasing Filter", expanded=False):
-        from entry_filter_ui import render_entry_filters
-        render_entry_filters(get_data)
-
-    with st.expander("KT08 + KT09 – Market Regime và Relative Strength", expanded=False):
-        from market_research_ui import render_market_research
-        render_market_research(get_data)
-
-    with st.expander("KT11 – Short-term Trading", expanded=False):
-        from short_term_ui import render_short_term
-        render_short_term(get_data)
-
-    with st.expander("KT12 – Kiểm định độ tin cậy", expanded=False):
-        from robustness_ui import render_robustness
-        render_robustness(get_data)
-
-    with st.expander("KT15 – Kiểm định mở rộng Large-cap", expanded=False):
-        from cross_section_ui import render_cross_section
-        render_cross_section(get_data)
-
-    with st.expander("KT16 – Universe & Concentration Robustness", expanded=False):
-        from concentration_ui import render_concentration
-        render_concentration()
-
-    with st.expander("KT17.0 – Sàng lọc U5 (120 mã)", expanded=False):
-        from universe_audit_ui import render_universe_audit
-        render_universe_audit(get_data)
-
-    with st.expander("KT17.0a-e – Chuẩn bị dữ liệu U5", expanded=False):
-        from universe_prepare_ui import render_universe_prepare
-        render_universe_prepare()
-
-    with st.expander("KT17 – Full Universe Backtesting (106/115 mã)", expanded=False):
-        from full_universe_ui import render_full_universe
-        render_full_universe()
-
-    with st.expander("KT18 – Portfolio Capacity & Robustness", expanded=False):
-        from capacity_ui import render_capacity
-        render_capacity()
+    st.caption("Công cụ nghiên cứu lịch sử, không thay đổi chiến lược đang vận hành.")
+    group=st.selectbox("Nhóm nghiên cứu",("Backtesting","Hiệu suất & độ tin cậy","Tín hiệu & điểm thoát","Danh mục & phân bổ","U5 & chất lượng mẫu"),key="v3_research_group")
+    if group!="Backtesting":
+        options={
+            "Hiệu suất & độ tin cậy": ("Tổng hợp Equity và Drawdown đa mã (thử nghiệm)","Walk-Forward Backtesting (kiểm định theo thời gian)","KT12 – Kiểm định độ tin cậy"),
+            "Tín hiệu & điểm thoát": ("KT01 + KT02 – Phân tích giao dịch và MAE/MFE","KT03 – Thử nghiệm Initial Stop Loss","KT13 – Thử nghiệm Profit Protection","KT14 + KT10 – Volatility và Anti-chasing Filter","KT08 + KT09 – Market Regime và Relative Strength","KT11 – Short-term Trading"),
+            "Danh mục & phân bổ": ("KT06 + KT07 – Position Sizing và Portfolio Backtesting","KT15 – Kiểm định mở rộng Large-cap","KT16 – Universe & Concentration Robustness","KT18 – Portfolio Capacity & Robustness"),
+            "U5 & chất lượng mẫu": ("KT17.0 – Sàng lọc U5 (120 mã)","KT17.0a-e – Chuẩn bị dữ liệu U5","KT17 – Full Universe Backtesting (106/115 mã)"),
+        }
+        tool=st.selectbox("Báo cáo nghiên cứu",options[group],key="v3_research_tool_"+group)
+        st.subheader(tool)
+        if tool=="Tổng hợp Equity và Drawdown đa mã (thử nghiệm)":
+            from risk_batch_ui import render_batch_risk
+            render_batch_risk(get_data)
+        elif tool=="Walk-Forward Backtesting (kiểm định theo thời gian)":
+            from walk_forward_ui import render_walk_forward
+            render_walk_forward(get_data)
+        elif tool=="KT01 + KT02 – Phân tích giao dịch và MAE/MFE":
+            from trade_diagnostics_ui import render_trade_diagnostics
+            render_trade_diagnostics(get_data)
+        elif tool=="KT03 – Thử nghiệm Initial Stop Loss":
+            from initial_stop_ui import render_initial_stop
+            render_initial_stop(get_data)
+        elif tool=="KT13 – Thử nghiệm Profit Protection":
+            from profit_protection_ui import render_profit_protection
+            render_profit_protection(get_data)
+        elif tool=="KT06 + KT07 – Position Sizing và Portfolio Backtesting":
+            from portfolio_ui import render_portfolio
+            render_portfolio(get_data)
+        elif tool=="KT14 + KT10 – Volatility và Anti-chasing Filter":
+            from entry_filter_ui import render_entry_filters
+            render_entry_filters(get_data)
+        elif tool=="KT08 + KT09 – Market Regime và Relative Strength":
+            from market_research_ui import render_market_research
+            render_market_research(get_data)
+        elif tool=="KT11 – Short-term Trading":
+            from short_term_ui import render_short_term
+            render_short_term(get_data)
+        elif tool=="KT12 – Kiểm định độ tin cậy":
+            from robustness_ui import render_robustness
+            render_robustness(get_data)
+        elif tool=="KT15 – Kiểm định mở rộng Large-cap":
+            from cross_section_ui import render_cross_section
+            render_cross_section(get_data)
+        elif tool=="KT16 – Universe & Concentration Robustness":
+            from concentration_ui import render_concentration
+            render_concentration()
+        elif tool=="KT17.0 – Sàng lọc U5 (120 mã)":
+            from universe_audit_ui import render_universe_audit
+            render_universe_audit(get_data)
+        elif tool=="KT17.0a-e – Chuẩn bị dữ liệu U5":
+            from universe_prepare_ui import render_universe_prepare
+            render_universe_prepare()
+        elif tool=="KT17 – Full Universe Backtesting (106/115 mã)":
+            from full_universe_ui import render_full_universe
+            render_full_universe()
+        elif tool=="KT18 – Portfolio Capacity & Robustness":
+            from capacity_ui import render_capacity
+            render_capacity()
+        return
 
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):

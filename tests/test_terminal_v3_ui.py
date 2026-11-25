@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 BASE="f1cd923b9ae2ae87000f1d2af3932ec00c375e52"
-UI_FILES={"app.py","workspace_ui.py","workspace_detail_ui.py","workspace_portfolio_ui.py","workspace_advanced_ui.py","terminal_v3_ui.py"}
+UI_FILES={"multi_backtest_ui.py","app.py","workspace_ui.py","workspace_detail_ui.py","workspace_portfolio_ui.py","workspace_advanced_ui.py","terminal_v3_ui.py"}
 
 class TerminalV3Integrity(unittest.TestCase):
     def test_ui_syntax(self):
@@ -39,6 +39,13 @@ class TerminalV3Integrity(unittest.TestCase):
             self.assertTrue(any(name in (ROOT/p).read_text(encoding="utf-8") for p in UI_FILES))
         self.assertIn("elif days_old>5:",(ROOT/"workspace_detail_ui.py").read_text(encoding="utf-8"))
         self.assertEqual(git("show",BASE+":requirements.txt"),(ROOT/"requirements.txt").read_bytes())
+        previous=git("show",BASE+":multi_backtest_ui.py").decode("utf-8-sig").replace("\r\n","\n")
+        current=(ROOT/"multi_backtest_ui.py").read_text(encoding="utf-8-sig")
+        anchor="    st.caption(RESEARCH_NOTE)"
+        self.assertEqual(previous[previous.index(anchor):],current[current.index(anchor):])
+        def imported_renderers(s):
+            return sorted((n.module,a.name) for n in ast.walk(ast.parse(s)) if isinstance(n,ast.ImportFrom) for a in n.names if a.name.startswith("render_"))
+        self.assertEqual(imported_renderers(previous),imported_renderers(current))
 
 @unittest.skipUnless(importlib.util.find_spec("streamlit"),"Streamlit not installed")
 class TerminalV3Navigation(unittest.TestCase):
