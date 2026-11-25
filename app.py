@@ -411,11 +411,11 @@ def get_data(symbol, tf, history_end=None, kt15_acv_quarantine=False):
     return pd.DataFrame()
 
 # --- 5. GIAO DIỆN CHÍNH ---
-from trading_dashboard_core import HOME, WATCHLIST, DETAIL, SCAN, PORTFOLIO, PERFORMANCE, RESEARCH_PAGE, PAGES, LABELS, NAV_KEY
+from trading_dashboard_core import HOME, SIGNALS, WATCHLIST, DETAIL, SCAN, PORTFOLIO, PERFORMANCE, RESEARCH_PAGE, PAGES, LABELS, NAV_KEY
 from trading_dashboard_ui import render_overview, render_watchlist, render_portfolio_status, render_performance_status
 
 st.sidebar.title("Stock Bot V3")
-st.sidebar.caption("PT01 · Nghiên cứu")
+st.sidebar.caption("PT02 · Nghiên cứu")
 mode = st.sidebar.radio("Điều hướng", PAGES, key=NAV_KEY, format_func=lambda p: LABELS.get(p,p))
 timeframe = (
     st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
@@ -424,6 +424,9 @@ timeframe = (
 
 if mode == HOME:
     render_overview()
+elif mode == SIGNALS:
+    from signal_engine_ui import render_signal_engine
+    render_signal_engine()
 elif mode == WATCHLIST:
     render_watchlist()
 elif mode == PORTFOLIO:
@@ -1038,7 +1041,7 @@ elif mode == RESEARCH_PAGE:
     render_multi_backtest(get_data)
 elif mode == SCAN:
     st.header(f"Trình quét V1 (Khung: {timeframe})")
-    st.caption(f"Danh sách quét cũ: {len(TOP_MARKET)} mã, không phải U5 120 mã. MUA/BÁN là trạng thái kỹ thuật V1, không phải lệnh Paper Trading. Bộ quét U5-A0-RS60 sẽ triển khai tại PT02.")
+    st.caption(f"Danh sách quét cũ: {len(TOP_MARKET)} mã, không phải U5 120 mã. MUA/BÁN là trạng thái kỹ thuật V1, không phải lệnh Paper Trading. Bộ quét U5-A0-RS60 có trang riêng.")
     if st.button("Bắt đầu phân tích"):
         results = []
         bar = st.progress(0)

@@ -8,11 +8,12 @@ from portfolio_core import Policy
 HOME="Tổng quan Trading"
 WATCHLIST="Watchlist U5 (120 mã)"
 DETAIL="Phân tích chi tiết mã"
+SIGNALS="Quét U5 – S0P0 / RS60"
 SCAN="Quét tín hiệu toàn thị trường"
 PORTFOLIO="Danh mục & Nhật ký"
 PERFORMANCE="Hiệu suất & Kiểm chứng"
 RESEARCH_PAGE="Backtesting đa mã và kiểm định chiến lược"
-PAGES=(HOME,WATCHLIST,DETAIL,SCAN,PORTFOLIO,PERFORMANCE,RESEARCH_PAGE)
+PAGES=(HOME,SIGNALS,WATCHLIST,DETAIL,SCAN,PORTFOLIO,PERFORMANCE,RESEARCH_PAGE)
 NAV_KEY="pt01_page"
 LABELS={SCAN:"Quét tín hiệu V1 (danh sách cũ)",RESEARCH_PAGE:"Trung tâm kiểm định KT01–KT18"}
 CANDIDATE="U5-A0-RS60-P5-R050"

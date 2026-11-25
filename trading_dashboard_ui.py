@@ -1,7 +1,7 @@
 """PT01 Streamlit navigation and read-only workspace; no order execution."""
 import streamlit as st
 from trading_dashboard_core import (
-    HOME,WATCHLIST,DETAIL,SCAN,PORTFOLIO,PERFORMANCE,RESEARCH_PAGE,NAV_KEY,
+    HOME,SIGNALS,WATCHLIST,DETAIL,SCAN,PORTFOLIO,PERFORMANCE,RESEARCH_PAGE,NAV_KEY,
     CANDIDATE,HISTORY_END,HISTORY_GROUPS,watchlist_frame,filter_watchlist,candidate_parameters
 )
 from universe_u5 import U5_VERSION
@@ -15,7 +15,7 @@ def jump(label,page,key):
 
 def render_overview():
     st.title("Stock Bot V3")
-    st.caption("Không gian nghiên cứu và hỗ trợ quyết định giao dịch | PT01")
+    st.caption("Không gian nghiên cứu và hỗ trợ quyết định giao dịch | PT02")
     st.warning("Chưa có tài khoản Paper Trading hoạt động. Không gửi lệnh, không phê duyệt mua. Các thông số dưới đây là cấu hình nghiên cứu, không phải số dư hay vị thế thực.")
     p=Policy()
     d=watchlist_frame()
@@ -26,6 +26,7 @@ def render_overview():
     e.metric("Vị thế tối đa (cấu hình)",str(p.max_positions))
     st.caption(f"Dữ liệu hồi cứu đến {HISTORY_END}. Không có báo giá hiện tại trên trang này.")
     st.subheader("Không gian làm việc")
+    jump("Quét tín hiệu U5 – S0P0 / RS60",SIGNALS,"pt02_home_scan")
     left,right=st.columns(2)
     with left:
         st.markdown("**Watchlist U5**")
@@ -72,7 +73,7 @@ def render_watchlist():
     st.dataframe(out,hide_index=True,use_container_width=True,height=520)
     st.download_button("Tải CSV danh sách đang hiển thị",out.to_csv(index=False).encode("utf-8-sig"),"stock_bot_u5_watchlist.csv","text/csv",key="pt01_watch_csv")
     with st.expander("Giải thích phạm vi"):
-        st.write("Có trong mẫu hồi cứu không đồng nghĩa đủ 200 nến tại thời điểm hiện tại. 10 mã có lịch sử rút ngắn (ACV và 9 mã bổ sung); 4 mã sử dụng mẫu nến có giao dịch. Các trạng thái hiện tại và tuân thủ cần được kiểm tra ở bước PT02.")
+        st.write("Có trong mẫu hồi cứu không đồng nghĩa đủ 200 nến tại thời điểm hiện tại. 10 mã có lịch sử rút ngắn (ACV và 9 mã bổ sung); 4 mã sử dụng mẫu nến có giao dịch. PT02 kiểm tra kỹ thuật; tuân thủ vẫn cần xác minh độc lập.")
     jump("Về tổng quan",HOME,"pt01_watch_home")
 
 def render_portfolio_status():

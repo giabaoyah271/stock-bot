@@ -29,7 +29,7 @@ class TradingDashboardTests(unittest.TestCase):
         self.assertTrue(filter_watchlist("HPG",statuses=(HISTORY_ERROR,)).empty)
     def test_pages_and_policy(self):
         self.assertEqual(PAGES[0],HOME)
-        self.assertEqual(len(set(PAGES)),7)
+        self.assertEqual(len(set(PAGES)),8)
         self.assertTrue({DETAIL,SCAN,RESEARCH_PAGE}.issubset(PAGES))
         d=candidate_parameters().set_index("Thông số ứng viên")["Thiết lập nghiên cứu"]
         self.assertEqual(d["Vị thế tối đa"],"5")
