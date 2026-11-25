@@ -84,6 +84,10 @@ def render_multi_backtest(get_data):
         from full_universe_ui import render_full_universe
         render_full_universe()
 
+    with st.expander("KT18 – Portfolio Capacity & Robustness", expanded=False):
+        from capacity_ui import render_capacity
+        render_capacity()
+
     st.caption(RESEARCH_NOTE)
     with st.form("multi_backtest_form"):
         symbols_text = st.text_area(
