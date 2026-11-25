@@ -10,10 +10,10 @@ from backtesting import tao_bang_giao_dich
 from performance_metrics import profit_factor_money
 
 # --- 1. CẤU HÌNH HỆ THỐNG ---
-st.set_page_config(page_title="Hệ thống Giao dịch Xanh-Đỏ", layout="wide")
+st.set_page_config(page_title="Stock Bot V3", layout="wide")
 TF_MAP = {"1 Giờ": "1H", "Ngày": "1D", "Tuần": "1W"}
 # --- XAC THUC TCBS ---
-with st.sidebar.expander("Kết nối TCBS", expanded=True):
+with st.sidebar.expander("Kết nối TCBS", expanded=False):
     with st.form("tcbs_auth_form", clear_on_submit=True):
         tcbs_otp = st.text_input(
             "Smart OTP TCBS",
@@ -411,18 +411,27 @@ def get_data(symbol, tf, history_end=None, kt15_acv_quarantine=False):
     return pd.DataFrame()
 
 # --- 5. GIAO DIỆN CHÍNH ---
-st.sidebar.title("🛠️ Điều khiển")
-mode = st.sidebar.radio(
-    "Chế độ",
-    ["Phân tích chi tiết mã", "Quét tín hiệu toàn thị trường",
-     "Backtesting đa mã và kiểm định chiến lược"],
-)
+from trading_dashboard_core import HOME, WATCHLIST, DETAIL, SCAN, PORTFOLIO, PERFORMANCE, RESEARCH_PAGE, PAGES, LABELS, NAV_KEY
+from trading_dashboard_ui import render_overview, render_watchlist, render_portfolio_status, render_performance_status
+
+st.sidebar.title("Stock Bot V3")
+st.sidebar.caption("PT01 · Nghiên cứu")
+mode = st.sidebar.radio("Điều hướng", PAGES, key=NAV_KEY, format_func=lambda p: LABELS.get(p,p))
 timeframe = (
-    "Ngày" if mode == "Backtesting đa mã và kiểm định chiến lược"
-    else st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
+    st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
+    if mode in (DETAIL, SCAN) else "Ngày"
 )
 
-if mode == "Phân tích chi tiết mã":
+if mode == HOME:
+    render_overview()
+elif mode == WATCHLIST:
+    render_watchlist()
+elif mode == PORTFOLIO:
+    render_portfolio_status()
+elif mode == PERFORMANCE:
+    render_performance_status()
+elif mode == DETAIL:
+    st.caption("Phân tích kỹ thuật gốc V1; trạng thái xanh/đỏ không phải lệnh của ứng viên U5-A0-RS60.")
     symbol = st.sidebar.text_input("Nhập mã cổ phiếu", "HPG").upper()
     df = get_data(symbol, timeframe)
     
@@ -1024,11 +1033,12 @@ if mode == "Phân tích chi tiết mã":
     else:
         st.error("⚠️ Không thể kết nối dữ liệu.")
 
-elif mode == "Backtesting đa mã và kiểm định chiến lược":
+elif mode == RESEARCH_PAGE:
     from multi_backtest_ui import render_multi_backtest
     render_multi_backtest(get_data)
-else:
-    st.header(f"🔍 Trình quét tín hiệu (Khung: {timeframe})")
+elif mode == SCAN:
+    st.header(f"Trình quét V1 (Khung: {timeframe})")
+    st.caption(f"Danh sách quét cũ: {len(TOP_MARKET)} mã, không phải U5 120 mã. MUA/BÁN là trạng thái kỹ thuật V1, không phải lệnh Paper Trading. Bộ quét U5-A0-RS60 sẽ triển khai tại PT02.")
     if st.button("Bắt đầu phân tích"):
         results = []
         bar = st.progress(0)
