@@ -411,28 +411,42 @@ def get_data(symbol, tf, history_end=None, kt15_acv_quarantine=False):
     return pd.DataFrame()
 
 # --- 5. GIAO DIỆN CHÍNH ---
-from trading_dashboard_core import HOME, SIGNALS, WATCHLIST, DETAIL, SCAN, PORTFOLIO, PERFORMANCE, RESEARCH_PAGE, PAGES, LABELS, NAV_KEY
-from trading_dashboard_ui import render_overview, render_watchlist, render_portfolio_status, render_performance_status
+from trading_dashboard_core import DETAIL, SCAN, RESEARCH_PAGE
+from workspace_core import PAGES as WORKSPACE_PAGES, NAV as WORKSPACE_NAV, ADVANCED
+from workspace_ui import render_home, render_opportunities
+from workspace_portfolio_ui import render_portfolio
+from workspace_detail_ui import render_detail
 
 st.sidebar.title("Stock Bot V3")
-st.sidebar.caption("PT03–PT08 · Paper Trading nghiên cứu")
-mode = st.sidebar.radio("Điều hướng", PAGES, key=NAV_KEY, format_func=lambda p: LABELS.get(p,p))
-timeframe = (
-    st.sidebar.selectbox("Khung thời gian", list(TF_MAP.keys()), index=1)
-    if mode in (DETAIL, SCAN) else "Ngày"
-)
+st.sidebar.caption("Professional Workspace · Paper nghiên cứu")
+page=st.sidebar.radio("Không gian làm việc",WORKSPACE_PAGES,key=WORKSPACE_NAV)
+mode=None
+advanced=None
+if page==WORKSPACE_PAGES[4]:
+    advanced=st.sidebar.selectbox("Công cụ nâng cao",ADVANCED,key="pt09_advanced")
+    mode={ADVANCED[1]:RESEARCH_PAGE,ADVANCED[2]:SCAN,ADVANCED[3]:DETAIL}.get(advanced)
+timeframe=st.sidebar.selectbox("Khung thời gian",list(TF_MAP.keys()),index=1) if mode in (DETAIL,SCAN) else "Ngày"
 
-if mode == HOME:
-    render_overview()
-elif mode == SIGNALS:
+if page==WORKSPACE_PAGES[0]:
+    render_home()
+elif page==WORKSPACE_PAGES[1]:
+    render_opportunities()
+elif page==WORKSPACE_PAGES[2]:
+    render_detail(get_data)
+elif page==WORKSPACE_PAGES[3]:
+    render_portfolio()
+elif advanced==ADVANCED[0]:
+    from workspace_advanced_ui import render_settings
+    render_settings()
+elif advanced==ADVANCED[4]:
     from signal_engine_ui import render_signal_engine
     render_signal_engine()
-elif mode == WATCHLIST:
-    render_watchlist()
-elif mode == PORTFOLIO:
-    render_portfolio_status()
-elif mode == PERFORMANCE:
-    render_performance_status()
+elif advanced==ADVANCED[5]:
+    from workspace_advanced_ui import render_acceptance
+    render_acceptance()
+elif advanced==ADVANCED[6]:
+    from paper_trading_ui import render_performance
+    render_performance()
 elif mode == DETAIL:
     st.caption("Phân tích kỹ thuật gốc V1; trạng thái xanh/đỏ không phải lệnh của ứng viên U5-A0-RS60.")
     symbol = st.sidebar.text_input("Nhập mã cổ phiếu", "HPG").upper()

@@ -10,7 +10,12 @@ def render_signal_engine():
     st.title("Quét tín hiệu U5 – S0P0 / RS60")
     st.warning("PT02: tín hiệu kỹ thuật, không phải lệnh. Chưa xác minh pháp lý, tài khoản hoặc sizing. Xếp hạng chỉ trên mã khớp mẫu KT18 và có tín hiệu mua mới.")
     st.caption("So sánh TCBS hiện tại với lịch sử đóng băng 115 mã; không sửa giá, không tự bổ sung mã. Khung Ngày, giá nghìn đồng.")
-    ref=st.file_uploader("ZIP U5-B đã nghiệm thu (115 mã)",type="zip",key="pt02_reference")
+    ref_bytes=st.session_state.get("pt09_reference_bytes")
+    if ref_bytes is None:
+        ref=st.file_uploader("ZIP U5-B đã nghiệm thu (115 mã)",type="zip",key="pt02_reference")
+        ref_bytes=ref.getvalue() if ref is not None else None
+    else:
+        st.caption("Dùng lại ZIP U5-B đã xác minh trong workspace.")
     mode=st.radio("Chế độ PT02",("TEST","LIVE"),format_func=lambda x:"Kiểm thử ZIP – 23/11/2026 (không gọi TCBS)" if x=="TEST" else "Quét phiên mới từ TCBS",key="pt02_mode")
     now=local_now()
     if mode=="TEST":
@@ -44,12 +49,12 @@ def render_signal_engine():
     if st.button("Xóa kết quả PT02",key="pt02_clear"):
         st.session_state.pop("pt02_report",None)
     if st.button("Quét tín hiệu PT02",key="pt02_run",type="primary"):
-        if ref is None or not confirmed:
+        if ref_bytes is None or not confirmed:
             st.error("Cần ZIP tham chiếu và xác nhận phiên/đơn vị.")
             return
         bar=st.progress(0,text="Kiểm tra dữ liệu tham chiếu...")
         try:
-            old,zeros,reference=read_reference(ref.getvalue())
+            old,zeros,reference=read_reference(ref_bytes)
             stamp=local_now()
             batch=U5 if scope=="ALL" else BATCHES[scope]
             progress=lambda i,n,s:bar.progress(i/n,text=f"{i}/{n}: {s}")
